@@ -1,0 +1,821 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>محاسبه‌گر هدایت تحصیلی</title>
+    <meta name="theme-color" content="#2196f3">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📚</text></svg>">
+    
+    <!-- اضافه کردن فونت Vazirmatn -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css">
+    
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: Vazirmatn, Tahoma, sans-serif;
+            font-size: 16px;
+        }
+
+        :root {
+            --primary-color: #2196f3;
+            --primary-light: #e3f2fd;
+            --secondary-color: #ff9800;
+            --success-color: #4caf50;
+            --warning-color: #ff9800;
+            --danger-color: #f44336;
+            --light-color: #f5f7fa;
+            --dark-color: #2c3e50;
+            --text-color: #333;
+            --border-radius: 12px;
+            --box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            --box-shadow-hover: 0 6px 16px rgba(0, 0, 0, 0.15);
+            --transition: all 0.3s ease;
+        }
+
+        body {
+            background: linear-gradient(135deg, #e3f2fd 0%, #f5f7fa 100%);
+            color: var(--text-color);
+            line-height: 1.6;
+            padding: 16px;
+            min-height: 100vh;
+            font-family: Vazirmatn, Tahoma, sans-serif;
+            -webkit-tap-highlight-color: transparent;
+            padding-bottom: 80px;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 500px;
+            margin: 0 auto;
+            padding: 0;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 20px;
+            padding: 18px;
+            background: white;
+            border-radius: var(--border-radius);
+            box-shadow: var(--box-shadow);
+        }
+
+        h1 {
+            color: var(--primary-color);
+            margin-bottom: 10px;
+            font-size: 1.5rem;
+            font-weight: 700;
+            font-family: Vazirmatn, Tahoma, sans-serif;
+        }
+
+        .card {
+            background: white;
+            border-radius: var(--border-radius);
+            box-shadow: var(--box-shadow);
+            padding: 20px;
+            margin-bottom: 20px;
+            transition: var(--transition);
+        }
+
+        fieldset {
+            border: 1.5px solid #e0e0e0;
+            border-radius: var(--border-radius);
+            padding: 16px;
+            margin-bottom: 16px;
+            background: #f9fafc;
+        }
+
+        legend {
+            font-weight: bold;
+            padding: 0 12px;
+            color: var(--dark-color);
+            font-size: 1rem;
+            font-family: Vazirmatn, Tahoma, sans-serif;
+        }
+
+        label {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 14px;
+            font-size: 1rem;
+            font-family: Vazirmatn, Tahoma, sans-serif;
+        }
+
+        input[type="number"] {
+            width: 80px;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 1rem;
+            text-align: center;
+            transition: var(--transition);
+            -webkit-appearance: none;
+            margin: 0;
+            font-family: Vazirmatn, Tahoma, sans-serif;
+        }
+
+        input[type="number"]:focus {
+            border-color: var(--primary-color);
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.2);
+        }
+
+        select {
+            width: 100%;
+            padding: 14px;
+            border: 2px solid #ddd;
+            border-radius: var(--border-radius);
+            font-size: 1rem;
+            background: white;
+            margin-bottom: 18px;
+            transition: var(--transition);
+            font-family: Vazirmatn, Tahoma, sans-serif;
+        }
+
+        select:focus {
+            border-color: var(--primary-color);
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.2);
+        }
+
+        button {
+            background: linear-gradient(to right, var(--primary-color), #21cbf3);
+            color: white;
+            border: none;
+            padding: 16px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            border-radius: var(--border-radius);
+            cursor: pointer;
+            width: 100%;
+            transition: var(--transition);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            margin-top: 10px;
+            font-family: Vazirmatn, Tahoma, sans-serif;
+        }
+
+        button:active {
+            transform: scale(0.98);
+        }
+
+        .result {
+            background: white;
+            padding: 20px;
+            border-radius: var(--border-radius);
+            box-shadow: var(--box-shadow);
+            margin-top: 20px;
+            font-size: 1rem;
+            font-family: Vazirmatn, Tahoma, sans-serif;
+        }
+
+        .result h3 {
+            color: var(--primary-color);
+            margin-bottom: 12px;
+            text-align: center;
+            border-bottom: 2px solid #eee;
+            padding-bottom: 10px;
+            font-size: 1.2rem;
+            font-family: Vazirmatn, Tahoma, sans-serif;
+        }
+
+        .passed {
+            color: var(--success-color);
+            font-weight: bold;
+            font-family: Vazirmatn, Tahoma, sans-serif;
+        }
+
+        .failed {
+            color: var(--danger-color);
+            font-weight: bold;
+            font-family: Vazirmatn, Tahoma, sans-serif;
+        }
+
+        .warning {
+            color: var(--warning-color);
+            font-weight: bold;
+            background: #fff8e1;
+            padding: 14px;
+            border-radius: 8px;
+            border-right: 4px solid var(--warning-color);
+            font-size: 1rem;
+            font-family: Vazirmatn, Tahoma, sans-serif;
+        }
+
+        .note {
+            background: #e3f2fd;
+            border: 2px solid var(--primary-color);
+            border-radius: var(--border-radius);
+            padding: 18px;
+            margin-top: 20px;
+            line-height: 1.7;
+            font-size: 0.95rem;
+            font-family: Vazirmatn, Tahoma, sans-serif;
+        }
+
+        .inspiration {
+            background: linear-gradient(to right, #4caf50, #66bb6a);
+            color: white;
+            border-radius: var(--border-radius);
+            padding: 18px;
+            margin-top: 20px;
+            line-height: 1.7;
+            font-size: 1rem;
+            text-align: center;
+            font-weight: bold;
+            box-shadow: var(--box-shadow);
+            font-family: Vazirmatn, Tahoma, sans-serif;
+        }
+
+        .whatsapp-button {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            background-color: #25D366;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 14px 18px;
+            border-radius: 50px;
+            box-shadow: 0 4px 12px rgba(37, 211, 102, 0.4);
+            text-decoration: none;
+            font-weight: bold;
+            z-index: 1000;
+            transition: all 0.3s ease;
+            height: 56px;
+            font-family: Vazirmatn, Tahoma, sans-serif;
+        }
+
+        .whatsapp-button:active {
+            transform: scale(0.95);
+        }
+
+        .textbook-button {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background-color: var(--primary-color);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 14px 18px;
+            border-radius: 50px;
+            box-shadow: 0 4px 12px rgba(33, 150, 243, 0.4);
+            text-decoration: none;
+            font-weight: bold;
+            z-index: 1000;
+            transition: all 0.3s ease;
+            height: 56px;
+            font-family: Vazirmatn, Tahoma, sans-serif;
+        }
+
+        .textbook-button:active {
+            transform: scale(0.95);
+        }
+
+        .footer {
+            text-align: center;
+            margin-top: 25px;
+            color: #666;
+            font-size: 0.9rem;
+            padding: 10px;
+            position: relative;
+            z-index: 1;
+            font-family: Vazirmatn, Tahoma, sans-serif;
+        }
+
+        .subject-inputs {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .min-score {
+            font-size: 0.85rem;
+            color: #666;
+            margin-top: 4px;
+            text-align: left;
+            font-family: Vazirmatn, Tahoma, sans-serif;
+        }
+
+        .permission-badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-weight: bold;
+            margin-right: 8px;
+            font-family: Vazirmatn, Tahoma, sans-serif;
+        }
+
+        .permission-yes {
+            background-color: #e8f5e9;
+            color: #2e7d32;
+            font-family: Vazirmatn, Tahoma, sans-serif;
+        }
+
+        .permission-no {
+            background-color: #ffebee;
+            color: #c62828;
+            font-family: Vazirmatn, Tahoma, sans-serif;
+        }
+
+        .formula {
+            font-size: 0.9rem;
+            color: #666;
+            margin-top: 8px;
+            text-align: right;
+            font-family: Vazirmatn, Tahoma, sans-serif;
+        }
+
+        .calculation-info {
+            background-color: #f5f5f5;
+            border-radius: 8px;
+            padding: 12px;
+            margin-top: 15px;
+            font-size: 0.9rem;
+            line-height: 1.6;
+            font-family: Vazirmatn, Tahoma, sans-serif;
+        }
+
+        @media (max-width: 340px) {
+            * {
+                font-size: 14px;
+            }
+            
+            h1 {
+                font-size: 1.3rem;
+            }
+            
+            input[type="number"] {
+                width: 70px;
+                padding: 10px;
+            }
+            
+            .whatsapp-button,
+            .textbook-button {
+                padding: 12px 16px;
+                font-size: 0.9rem;
+                height: 50px;
+            }
+        }
+
+        @media (max-height: 500px) and (orientation: landscape) {
+            .container {
+                max-width: 100%;
+                padding: 10px;
+            }
+            
+            .card {
+                padding: 15px;
+            }
+            
+            .whatsapp-button,
+            .textbook-button {
+                bottom: 10px;
+            }
+            
+            .whatsapp-button {
+                left: 10px;
+            }
+            
+            .textbook-button {
+                right: 10px;
+            }
+            
+            body {
+                padding-bottom: 60px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            input[type="number"] {
+                font-size: 16px;
+            }
+            
+            select {
+                font-size: 16px;
+            }
+        }
+        
+        .wa-icon-container {
+            position: relative;
+            width: 28px;
+            height: 28px;
+        }
+        
+        .wa-icon-bg {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background: #fff;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .wa-icon-path {
+            fill: #25D366;
+        }
+        
+        .wa-icon-dots {
+            fill: #fff;
+        }
+        
+        .wa-icon-outline {
+            fill: #fff;
+        }
+        
+        .book-icon {
+            font-size: 24px;
+        }
+
+        .literature-calculator {
+            background-color: #e8f5e9;
+            border-radius: 8px;
+            padding: 12px;
+            margin: 10px 0;
+            border: 1px solid #c8e6c9;
+        }
+        
+        .literature-calculator h4 {
+            color: #2e7d32;
+            margin-bottom: 10px;
+            font-size: 1rem;
+            font-family: Vazirmatn, Tahoma, sans-serif;
+        }
+        
+        .literature-result {
+            font-weight: bold;
+            margin-top: 8px;
+            padding: 8px;
+            background-color: #f1f8e9;
+            border-radius: 4px;
+            text-align: center;
+            font-family: Vazirmatn, Tahoma, sans-serif;
+        }
+        
+        .auto-calc-btn {
+            background: linear-gradient(to right, #4caf50, #66bb6a);
+            padding: 8px 12px;
+            font-size: 0.9rem;
+            margin-top: 8px;
+            width: auto;
+            font-family: Vazirmatn, Tahoma, sans-serif;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>محاسبه‌گر هدایت تحصیلی</h1>
+        </header>
+
+        <div class="card">
+            <form id="form">
+                <label for="fieldSelect">انتخاب رشته:</label>
+                <select id="fieldSelect" required>
+                    <option value="" disabled selected>لطفاً رشته خود را انتخاب کنید</option>
+                    <option value="human">علوم انسانی</option>
+                    <option value="islamic">علوم و معارف اسلامی</option>
+                    <option value="experimental">علوم تجربی</option>
+                    <option value="mathphy">ریاضی فیزیک</option>
+                    <option value="karDaneshSanat">کاردانش و فنی حرفه‌ای - صنعت</option>
+                    <option value="karDaneshKhedmat">کاردانش و فنی حرفه‌ای - خدمات</option>
+                    <option value="karDaneshHonar">کاردانش و فنی حرفه‌ای - هنر</option>
+                    <option value="karDaneshKeshavarzi">کاردانش و فنی حرفه‌ای - کشاورزی</option>
+                </select>
+
+                <div id="inputsContainer"></div>
+
+                <div class="calculation-info">
+                    <strong>معیار محاسبه:</strong> نمرات خام برگه‌های امتحانی نوبت دوم (خردادماه یا شهریورماه) پایه‌های هفتم، هشتم و نهم است.
+                </div>
+
+                <button type="button" onclick="calculate()">بررسی حد نصاب نمرات</button>
+            </form>
+        </div>
+
+        <div class="result" id="result"></div>
+
+        <div class="inspiration">
+            آینده تو با انتخاب های امروزت ساخته می شود.
+        </div>
+
+        <div class="footer">
+            طراحی و توسعه توسط: احمد علی پرست
+        </div>
+    </div>
+
+    <a href="https://wa.me/989107628500" target="_blank" class="whatsapp-button" title="ارتباط با ما از طریق واتساپ">
+        <div class="wa-icon-container">
+            <svg class="whatsapp-icon" viewBox="0 0 24 24" width="28" height="28">
+                <path class="wa-icon-bg" d="M12.044 2C6.491 2 2 6.484 2 12.028c0 1.963.6 3.788 1.624 5.302L2 22l4.68-1.232a10.05 10.05 0 0 0 4.82 1.228c5.553 0 10.044-4.484 10.044-10.028S17.597 2 12.044 2z"/>
+                <path class="wa-icon-path" d="M17.157 14.668c-.224.632-.786 1.153-1.243 1.432-.224.14-.517.28-.786.28-.392 0-.605-.14-.953-.56l-.392-.56c-.392-.56-.897-.7-1.288-.7s-.785.07-1.177.56c-.392.49-1.51 1.472-1.846 1.782-.336.308-.672.35-.896.35s-.448-.07-.896-.42c-.448-.35-1.064-.98-1.624-1.922-.56-.943-.952-1.922-1.064-2.242-.112-.322 0-.63.224-.84.224-.21.448-.42.56-.56.112-.14.224-.28.336-.42.112-.14.112-.28.056-.42-.056-.14-.336-.98-.448-1.33-.112-.352-.3-.42-.56-.42s-.448.07-.785.07-.56-.07-.897-.07c-.336 0-.785.14-1.177.7-.392.56-1.51 1.75-1.51 4.2 0 2.45 1.79 4.898 2.017 5.248.224.35 3.358 5.388 8.184 7.448 4.826 2.06 4.826 1.328 5.718 1.328.892 0 2.907-1.15 3.358-2.242.448-1.092.448-2.03.336-2.242-.112-.21-.392-.35-.785-.56z"/>
+                <path class="wa-icon-dots" d="M9.044 9.978a.66.66 0 1 1-1.32 0 .66.66 0 0 1 1.32 0zm3.3 0a.66.66 0 1 1-1.32 0 .66.66 0 0 1 1.32 0zm3.3 0a.66.66 0 1 1-1.318 0 .66.66 0 0 1 1.318 0z"/>
+            </svg>
+        </div>
+        ارتباط با ما
+    </a>
+
+    <a href="http://chap.sch.ir/" target="_blank" class="textbook-button" title="پایگاه کتاب های درسی">
+        <span class="book-icon">📚</span>
+        پایگاه کتب درسی
+    </a>
+
+    <script>
+        const fields = {
+            human: {
+                name: "علوم انسانی",
+                subjects: {
+                    "ادبیات فارسی": 14,
+                    "مطالعات اجتماعی": 13,
+                    "عربی": 12
+                }
+            },
+            islamic: {
+                name: "علوم و معارف اسلامی",
+                subjects: {
+                    "معارف اسلامی": 14,
+                    "زبان عربی": 14,
+                    "ادبیات فارسی": 14
+                }
+            },
+            experimental: {
+                name: "علوم تجربی",
+                subjects: {
+                    "علوم": 14,
+                    "ریاضی": 13
+                }
+            },
+            mathphy: {
+                name: "ریاضی فیزیک",
+                subjects: {
+                    "ریاضی": 14,
+                    "علوم": 13
+                }
+            },
+            karDaneshSanat: {
+                name: "کاردانش و فنی حرفه‌ای - صنعت",
+                subjects: {
+                    "ریاضی": 10,
+                    "کار و فناوری": 12
+                }
+            },
+            karDaneshKhedmat: {
+                name: "کاردانش و فنی حرفه‌ای - خدمات",
+                subjects: {
+                    "کار و فناوری": 10,
+                    "فرهنگ و هنر": 10
+                }
+            },
+            karDaneshHonar: {
+                name: "کاردانش و فنی حرفه‌ای - هنر",
+                subjects: {
+                    "کار و فناوری": 10,
+                    "فرهنگ و هنر": 12
+                }
+            },
+            karDaneshKeshavarzi: {
+                name: "کاردانش و فنی حرفه‌ای - کشاورزی",
+                subjects: {}
+            }
+        };
+
+        const inputsContainer = document.getElementById("inputsContainer");
+        const fieldSelect = document.getElementById("fieldSelect");
+
+        function createInputs(fieldKey) {
+            inputsContainer.innerHTML = "";
+            const field = fields[fieldKey];
+            if(!field) return;
+
+            if(fieldKey === "karDaneshKeshavarzi") {
+                inputsContainer.innerHTML = "<p class='warning'>رشته کاردانش و فنی حرفه‌ای - کشاورزی نیاز به حد نصاب نمره ندارد.</p>";
+                return;
+            }
+
+            for (const subject in field.subjects) {
+                const minScore = field.subjects[subject];
+                const fieldset = document.createElement("fieldset");
+                
+                // اضافه کردن ماشین حساب برای ادبیات فارسی
+                let literatureCalculatorHTML = "";
+                if (fieldKey === "human" && subject === "ادبیات فارسی") {
+                    literatureCalculatorHTML = `
+                        <div class="literature-calculator">
+                            <h4>محاسبه خودکار نمره ادبیات فارسی</h4>
+                            <label>املاء پایه هفتم: <input type="number" min="0" max="20" step="0.1" class="imla7"></label>
+                            <label>نگارش پایه هفتم: <input type="number" min="0" max="20" step="0.1" class="negaresh7"></label>
+                            <label>ادبیات پایه هفتم: <input type="number" min="0" max="20" step="0.1" class="adabiat7"></label>
+                            <div class="literature-result" id="literatureResult7">نمره ادبیات فارسی پایه هفتم: -</div>
+                            
+                            <label>املاء پایه هشتم: <input type="number" min="0" max="20" step="0.1" class="imla8"></label>
+                            <label>نگارش پایه هشتم: <input type="number" min="0" max="20" step="0.1" class="negaresh8"></label>
+                            <label>ادبیات پایه هشتم: <input type="number" min="0" max="20" step="0.1" class="adabiat8"></label>
+                            <div class="literature-result" id="literatureResult8">نمره ادبیات فارسی پایه هشتم: -</div>
+                            
+                            <label>املاء پایه نهم: <input type="number" min="0" max="20" step="0.1" class="imla9"></label>
+                            <label>نگارش پایه نهم: <input type="number" min="0" max="20" step="0.1" class="negaresh9"></label>
+                            <label>ادبیات پایه نهم: <input type="number" min="0" max="20" step="0.1" class="adabiat9"></label>
+                            <div class="literature-result" id="literatureResult9">نمره ادبیات فارسی پایه نهم: -</div>
+                            
+                            <button type="button" class="auto-calc-btn" onclick="calculateLiteratureScores()">محاسبه و اعمال نمرات</button>
+                        </div>
+                    `;
+                }
+                
+                // اضافه کردن ماشین حساب برای معارف اسلامی
+                let islamicCalculatorHTML = "";
+                if (fieldKey === "islamic" && subject === "معارف اسلامی") {
+                    islamicCalculatorHTML = `
+                        <div class="literature-calculator" style="background-color: #e3f2fd; border-color: #90caf9;">
+                            <h4>محاسبه خودکار نمره معارف اسلامی</h4>
+                            <label>قرآن پایه هفتم: <input type="number" min="0" max="20" step="0.1" class="quran7"></label>
+                            <label>پیام‌های آسمانی پایه هفتم: <input type="number" min="0" max="20" step="0.1" class="payam7"></label>
+                            <div class="literature-result" id="islamicResult7">نمره معارف اسلامی پایه هفتم: -</div>
+                            
+                            <label>قرآن پایه هشتم: <input type="number" min="0" max="20" step="0.1" class="quran8"></label>
+                            <label>پیام‌های آسمانی پایه هشتم: <input type="number" min="0" max="20" step="0.1" class="payam8"></label>
+                            <div class="literature-result" id="islamicResult8">نمره معارف اسلامی پایه هشتم: -</div>
+                            
+                            <label>قرآن پایه نهم: <input type="number" min="0" max="20" step="0.1" class="quran9"></label>
+                            <label>پیام‌های آسمانی پایه نهم: <input type="number" min="0" max="20" step="0.1" class="payam9"></label>
+                            <div class="literature-result" id="islamicResult9">نمره معارف اسلامی پایه نهم: -</div>
+                            
+                            <button type="button" class="auto-calc-btn" onclick="calculateIslamicScores()" style="background: linear-gradient(to right, #2196f3, #21cbf3);">محاسبه و اعمال نمرات</button>
+                        </div>
+                    `;
+                }
+
+                fieldset.innerHTML = `
+                    <legend>${subject} (حداقل میانگین مورد نیاز: ${minScore})</legend>
+                    ${literatureCalculatorHTML}
+                    ${islamicCalculatorHTML}
+                    <div class="subject-inputs">
+                        <label>پایه هفتم: <input type="number" min="0" max="20" step="0.1" required name="s7_${subject}"></label>
+                        <label>پایه هشتم: <input type="number" min="0" max="20" step="0.1" required name="s8_${subject}"></label>
+                        <label>پایه نهم: <input type="number" min="0" max="20" step="0.1" required name="s9_${subject}"></label>
+                    </div>
+                `;
+                inputsContainer.appendChild(fieldset);
+            }
+        }
+
+        // تابع محاسبه نمره ادبیات فارسی
+        function calculateLiteratureScores() {
+            // محاسبه برای پایه هفتم
+            const imla7 = parseFloat(document.querySelector('.imla7').value) || 0;
+            const negaresh7 = parseFloat(document.querySelector('.negaresh7').value) || 0;
+            const adabiat7 = parseFloat(document.querySelector('.adabiat7').value) || 0;
+            const literatureScore7 = ((imla7 + negaresh7 + adabiat7) / 3).toFixed(2);
+            document.getElementById('literatureResult7').textContent = `نمره ادبیات فارسی پایه هفتم: ${literatureScore7}`;
+            document.querySelector('input[name="s7_ادبیات فارسی"]').value = literatureScore7;
+            
+            // محاسبه برای پایه هشتم
+            const imla8 = parseFloat(document.querySelector('.imla8').value) || 0;
+            const negaresh8 = parseFloat(document.querySelector('.negaresh8').value) || 0;
+            const adabiat8 = parseFloat(document.querySelector('.adabiat8').value) || 0;
+            const literatureScore8 = ((imla8 + negaresh8 + adabiat8) / 3).toFixed(2);
+            document.getElementById('literatureResult8').textContent = `نمره ادبیات فارسی پایه هشتم: ${literatureScore8}`;
+            document.querySelector('input[name="s8_ادبیات فارسی"]').value = literatureScore8;
+            
+            // محاسبه برای پایه نهم
+            const imla9 = parseFloat(document.querySelector('.imla9').value) || 0;
+            const negaresh9 = parseFloat(document.querySelector('.negaresh9').value) || 0;
+            const adabiat9 = parseFloat(document.querySelector('.adabiat9').value) || 0;
+            const literatureScore9 = ((imla9 + negaresh9 + adabiat9) / 3).toFixed(2);
+            document.getElementById('literatureResult9').textContent = `نمره ادبیات فارسی پایه نهم: ${literatureScore9}`;
+            document.querySelector('input[name="s9_ادبیات فارسی"]').value = literatureScore9;
+        }
+
+        // تابع محاسبه نمره معارف اسلامی
+        function calculateIslamicScores() {
+            // محاسبه برای پایه هفتم
+            const quran7 = parseFloat(document.querySelector('.quran7').value) || 0;
+            const payam7 = parseFloat(document.querySelector('.payam7').value) || 0;
+            const islamicScore7 = ((quran7 + payam7) / 2).toFixed(2);
+            document.getElementById('islamicResult7').textContent = `نمره معارف اسلامی پایه هفتم: ${islamicScore7}`;
+            document.querySelector('input[name="s7_معارف اسلامی"]').value = islamicScore7;
+            
+            // محاسبه برای پایه هشتم
+            const quran8 = parseFloat(document.querySelector('.quran8').value) || 0;
+            const payam8 = parseFloat(document.querySelector('.payam8').value) || 0;
+            const islamicScore8 = ((quran8 + payam8) / 2).toFixed(2);
+            document.getElementById('islamicResult8').textContent = `نمره معارف اسلامی پایه هشتم: ${islamicScore8}`;
+            document.querySelector('input[name="s8_معارف اسلامی"]').value = islamicScore8;
+            
+            // محاسبه برای پایه نهم
+            const quran9 = parseFloat(document.querySelector('.quran9').value) || 0;
+            const payam9 = parseFloat(document.querySelector('.payam9').value) || 0;
+            const islamicScore9 = ((quran9 + payam9) / 2).toFixed(2);
+            document.getElementById('islamicResult9').textContent = `نمره معارف اسلامی پایه نهم: ${islamicScore9}`;
+            document.querySelector('input[name="s9_معارف اسلامی"]').value = islamicScore9;
+        }
+
+        fieldSelect.addEventListener("change", function() {
+            createInputs(this.value);
+            document.getElementById("result").innerHTML = "";
+        });
+
+        function calculate() {
+            const fieldKey = fieldSelect.value;
+            if(!fieldKey) {
+                alert("لطفاً یک رشته را انتخاب کنید.");
+                return;
+            }
+
+            const field = fields[fieldKey];
+            if(!field) return;
+
+            if(fieldKey === "karDaneshKeshavarzi") {
+                document.getElementById("result").innerHTML = "<p class='passed'>رشته کاردانش و فنی حرفه‌ای - کشاورزی نیاز به حد نصاب نمره ندارد و قبول خواهید شد.</p>";
+                return;
+            }
+
+            let resultHtml = `<h3>نتایج بررسی حد نصاب برای رشته ${field.name}</h3><ul>`;
+            let allPassed = true;
+
+            for (const subject in field.subjects) {
+                const inputs7 = document.getElementsByName(`s7_${subject}`)[0];
+                const inputs8 = document.getElementsByName(`s8_${subject}`)[0];
+                const inputs9 = document.getElementsByName(`s9_${subject}`)[0];
+                const M = field.subjects[subject];
+
+                if(!inputs7 || !inputs8 || !inputs9) {
+                    alert("خطا در ورودی‌ها.");
+                    return;
+                }
+
+                const n7 = parseFloat(inputs7.value);
+                const n8 = parseFloat(inputs8.value);
+                const n9 = parseFloat(inputs9.value);
+
+                if(isNaN(n7) || isNaN(n8) || isNaN(n9)) {
+                    alert(`لطفاً نمرات پایه هفتم، هشتم و نهم درس "${subject}" را وارد کنید.`);
+                    return;
+                }
+
+                if(n7 <0 || n7 >20 || n8<0 || n8>20 || n9<0 || n9>20) {
+                    alert(`نمرات درس "${subject}" باید بین 0 تا 20 باشند.`);
+                    return;
+                }
+
+                // محاسبه بر اساس فرمول جدید: (هفتم × １) + (هشتم × １) + (نهم × ３) ÷ ５
+                const calculatedScore = (n7 * 1 + n8 * 1 + n9 * 3) / 5;
+
+                // بررسی حد نصاب
+                const passed = calculatedScore >= M;
+                if (!passed) allPassed = false;
+
+                // محاسبه حداقل نمره نهم مورد نیاز
+                const minNinthNeeded = ((M * 5) - n7 - n8) / 3;
+                let minNinthText = "";
+                
+                if (minNinthNeeded > 20) {
+                    minNinthText = `<span class="failed">نیاز به نمره نهم بیشتر از 20 دارید (${minNinthNeeded.toFixed(2)})</span>`;
+                } else if (minNinthNeeded <= 0) {
+                    minNinthText = `<span class="passed">نمرات فعلی شما کافی است</span>`;
+                } else {
+                    minNinthText = `حداقل نمره نهم مورد نیاز: ${minNinthNeeded.toFixed(2)}`;
+                }
+
+                resultHtml += `
+                    <li>
+                        <strong>${subject}:</strong> 
+                        <span class="${passed ? 'passed' : 'failed'}">
+                            نمره محاسبه شده: ${calculatedScore.toFixed(2)} - 
+                            ${passed ? 
+                                `<span class="permission-badge permission-yes">مجاز</span>` : 
+                                `<span class="permission-badge permission-no">غیرمجاز</span>`
+                            }
+                            (حداقل میانگین مورد نیاز: ${M})
+                        </span>
+                        <div class="min-score">${minNinthText}</div>
+                    </li>
+                `;
+            }
+
+            resultHtml += "</ul>";
+            
+            resultHtml += `
+                <p class="${allPassed ? 'passed' : 'failed'}">
+                    <strong>نتیجه نهایی:</strong> 
+                    ${allPassed ? 
+                        '<span class="permission-badge permission-yes">مجاز</span> شما در این رشته مجاز هستید.' : 
+                        '<span class="permission-badge permission-no">غیرمجاز</span> شما در این رشته مجاز نیستید.'
+                    }
+                </p>
+            `;
+
+            document.getElementById("result").innerHTML = resultHtml;
+        }
+    </script>
+</body>
+</html>

@@ -469,12 +469,21 @@
             width: auto;
             font-family: Vazirmatn, Tahoma, sans-serif;
         }
+        
+        .input-info {
+            font-size: 0.85rem;
+            color: #666;
+            margin-top: 4px;
+            font-style: italic;
+            text-align: center;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <header>
             <h1>محاسبه‌گر هدایت تحصیلی</h1>
+            <p>ویژه پایه نهم</p>
         </header>
 
         <div class="card">
@@ -495,10 +504,10 @@
                 <div id="inputsContainer"></div>
 
                 <div class="calculation-info">
-                    <strong>معیار محاسبه:</strong> نمرات خام برگه‌های امتحانی نوبت دوم (خردادماه یا شهریورماه) پایه‌های هفتم، هشتم و نهم است.
+                    <strong>معیار محاسبه:</strong> نمرات خام برگه‌های امتحانی نوبت دوم (خردادماه یا شهریورماه) پایه‌های هفتم و هشتم است. نمره پایه نهم اختیاری است و سیستم حداقل نمره مورد نیاز را محاسبه می‌کند.
                 </div>
 
-                <button type="button" onclick="calculate()">بررسی حد نصاب نمرات</button>
+                <button type="button" onclick="calculate()">محاسبه حداقل نمره نهم مورد نیاز</button>
             </form>
         </div>
 
@@ -621,11 +630,6 @@
                             <label>ادبیات پایه هشتم: <input type="number" min="0" max="20" step="0.1" class="adabiat8"></label>
                             <div class="literature-result" id="literatureResult8">نمره ادبیات فارسی پایه هشتم: -</div>
                             
-                            <label>املاء پایه نهم: <input type="number" min="0" max="20" step="0.1" class="imla9"></label>
-                            <label>نگارش پایه نهم: <input type="number" min="0" max="20" step="0.1" class="negaresh9"></label>
-                            <label>ادبیات پایه نهم: <input type="number" min="0" max="20" step="0.1" class="adabiat9"></label>
-                            <div class="literature-result" id="literatureResult9">نمره ادبیات فارسی پایه نهم: -</div>
-                            
                             <button type="button" class="auto-calc-btn" onclick="calculateLiteratureScores()">محاسبه و اعمال نمرات</button>
                         </div>
                     `;
@@ -645,10 +649,6 @@
                             <label>پیام‌های آسمانی پایه هشتم: <input type="number" min="0" max="20" step="0.1" class="payam8"></label>
                             <div class="literature-result" id="islamicResult8">نمره معارف اسلامی پایه هشتم: -</div>
                             
-                            <label>قرآن پایه نهم: <input type="number" min="0" max="20" step="0.1" class="quran9"></label>
-                            <label>پیام‌های آسمانی پایه نهم: <input type="number" min="0" max="20" step="0.1" class="payam9"></label>
-                            <div class="literature-result" id="islamicResult9">نمره معارف اسلامی پایه نهم: -</div>
-                            
                             <button type="button" class="auto-calc-btn" onclick="calculateIslamicScores()" style="background: linear-gradient(to right, #2196f3, #21cbf3);">محاسبه و اعمال نمرات</button>
                         </div>
                     `;
@@ -661,7 +661,8 @@
                     <div class="subject-inputs">
                         <label>پایه هفتم: <input type="number" min="0" max="20" step="0.1" required name="s7_${subject}"></label>
                         <label>پایه هشتم: <input type="number" min="0" max="20" step="0.1" required name="s8_${subject}"></label>
-                        <label>پایه نهم: <input type="number" min="0" max="20" step="0.1" required name="s9_${subject}"></label>
+                        <label>پایه نهم: <input type="number" min="0" max="20" step="0.1" name="s9_${subject}" placeholder="اختیاری">
+                        <div class="input-info">(اختیاری - برای محاسبه نیازی به وارد کردن نیست)</div></label>
                     </div>
                 `;
                 inputsContainer.appendChild(fieldset);
@@ -685,14 +686,6 @@
             const literatureScore8 = ((imla8 + negaresh8 + adabiat8) / 3).toFixed(2);
             document.getElementById('literatureResult8').textContent = `نمره ادبیات فارسی پایه هشتم: ${literatureScore8}`;
             document.querySelector('input[name="s8_ادبیات فارسی"]').value = literatureScore8;
-            
-            // محاسبه برای پایه نهم
-            const imla9 = parseFloat(document.querySelector('.imla9').value) || 0;
-            const negaresh9 = parseFloat(document.querySelector('.negaresh9').value) || 0;
-            const adabiat9 = parseFloat(document.querySelector('.adabiat9').value) || 0;
-            const literatureScore9 = ((imla9 + negaresh9 + adabiat9) / 3).toFixed(2);
-            document.getElementById('literatureResult9').textContent = `نمره ادبیات فارسی پایه نهم: ${literatureScore9}`;
-            document.querySelector('input[name="s9_ادبیات فارسی"]').value = literatureScore9;
         }
 
         // تابع محاسبه نمره معارف اسلامی
@@ -710,13 +703,6 @@
             const islamicScore8 = ((quran8 + payam8) / 2).toFixed(2);
             document.getElementById('islamicResult8').textContent = `نمره معارف اسلامی پایه هشتم: ${islamicScore8}`;
             document.querySelector('input[name="s8_معارف اسلامی"]').value = islamicScore8;
-            
-            // محاسبه برای پایه نهم
-            const quran9 = parseFloat(document.querySelector('.quran9').value) || 0;
-            const payam9 = parseFloat(document.querySelector('.payam9').value) || 0;
-            const islamicScore9 = ((quran9 + payam9) / 2).toFixed(2);
-            document.getElementById('islamicResult9').textContent = `نمره معارف اسلامی پایه نهم: ${islamicScore9}`;
-            document.querySelector('input[name="s9_معارف اسلامی"]').value = islamicScore9;
         }
 
         fieldSelect.addEventListener("change", function() {
@@ -739,8 +725,9 @@
                 return;
             }
 
-            let resultHtml = `<h3>نتایج بررسی حد نصاب برای رشته ${field.name}</h3><ul>`;
-            let allPassed = true;
+            let resultHtml = `<h3>نتایج بررسی برای رشته ${field.name}</h3>`;
+            let allPossible = true;
+            let details = [];
 
             for (const subject in field.subjects) {
                 const inputs7 = document.getElementsByName(`s7_${subject}`)[0];
@@ -748,70 +735,79 @@
                 const inputs9 = document.getElementsByName(`s9_${subject}`)[0];
                 const M = field.subjects[subject];
 
-                if(!inputs7 || !inputs8 || !inputs9) {
+                if(!inputs7 || !inputs8) {
                     alert("خطا در ورودی‌ها.");
                     return;
                 }
 
                 const n7 = parseFloat(inputs7.value);
                 const n8 = parseFloat(inputs8.value);
-                const n9 = parseFloat(inputs9.value);
+                const n9 = inputs9.value ? parseFloat(inputs9.value) : null;
 
-                if(isNaN(n7) || isNaN(n8) || isNaN(n9)) {
-                    alert(`لطفاً نمرات پایه هفتم، هشتم و نهم درس "${subject}" را وارد کنید.`);
+                if(isNaN(n7) || isNaN(n8)) {
+                    alert(`لطفاً نمرات پایه هفتم و هشتم درس "${subject}" را وارد کنید.`);
                     return;
                 }
 
-                if(n7 <0 || n7 >20 || n8<0 || n8>20 || n9<0 || n9>20) {
+                if(n7 <0 || n7 >20 || n8<0 || n8>20 || (n9 !== null && (n9<0 || n9>20))) {
                     alert(`نمرات درس "${subject}" باید بین 0 تا 20 باشند.`);
                     return;
                 }
 
-                // محاسبه بر اساس فرمول جدید: (هفتم × １) + (هشتم × １) + (نهم × ３) ÷ ５
-                const calculatedScore = (n7 * 1 + n8 * 1 + n9 * 3) / 5;
-
-                // بررسی حد نصاب
-                const passed = calculatedScore >= M;
-                if (!passed) allPassed = false;
-
                 // محاسبه حداقل نمره نهم مورد نیاز
                 const minNinthNeeded = ((M * 5) - n7 - n8) / 3;
-                let minNinthText = "";
+                let status = "";
+                let isPossible = true;
                 
                 if (minNinthNeeded > 20) {
-                    minNinthText = `<span class="failed">نیاز به نمره نهم بیشتر از 20 دارید (${minNinthNeeded.toFixed(2)})</span>`;
+                    status = `<span class="failed">غیرممکن - حتی با نمره 20 در نهم نیز به حدنصاب نمی‌رسید (نیاز به ${minNinthNeeded.toFixed(2)})</span>`;
+                    isPossible = false;
+                    allPossible = false;
                 } else if (minNinthNeeded <= 0) {
-                    minNinthText = `<span class="passed">نمرات فعلی شما کافی است</span>`;
+                    status = `<span class="passed">با نمرات فعلی هفتم و هشتم، حتی بدون نمره نهم نیز مجاز هستید</span>`;
                 } else {
-                    minNinthText = `حداقل نمره نهم مورد نیاز: ${minNinthNeeded.toFixed(2)}`;
+                    status = `<span class="${minNinthNeeded <= 20 ? 'passed' : 'failed'}">حداقل نمره نهم مورد نیاز: ${minNinthNeeded.toFixed(2)}</span>`;
                 }
 
-                resultHtml += `
+                // اگر نمره نهم وارد شده باشد، وضعیت فعلی را هم محاسبه می‌کنیم
+                let currentStatus = "";
+                if (n9 !== null) {
+                    const calculatedScore = (n7 * 1 + n8 * 1 + n9 * 3) / 5;
+                    const passed = calculatedScore >= M;
+                    currentStatus = `<br>نمره محاسبه شده با نمره نهم وارد شده: ${calculatedScore.toFixed(2)} - 
+                                    ${passed ? 
+                                        `<span class="permission-badge permission-yes">مجاز</span>` : 
+                                        `<span class="permission-badge permission-no">غیرمجاز</span>`
+                                    }`;
+                }
+
+                details.push(`
                     <li>
-                        <strong>${subject}:</strong> 
-                        <span class="${passed ? 'passed' : 'failed'}">
-                            نمره محاسبه شده: ${calculatedScore.toFixed(2)} - 
-                            ${passed ? 
-                                `<span class="permission-badge permission-yes">مجاز</span>` : 
-                                `<span class="permission-badge permission-no">غیرمجاز</span>`
-                            }
-                            (حداقل میانگین مورد نیاز: ${M})
-                        </span>
-                        <div class="min-score">${minNinthText}</div>
+                        <strong>${subject}:</strong><br>
+                        نمرات: هفتم=${n7.toFixed(2)}، هشتم=${n8.toFixed(2)}<br>
+                        ${status}
+                        ${currentStatus}
                     </li>
-                `;
+                `);
             }
 
-            resultHtml += "</ul>";
+            resultHtml += "<ul>" + details.join("") + "</ul>";
+            
+            let finalStatus = "";
+            if (allPossible) {
+                finalStatus = '<span class="passed">✅ با تلاش و کسب نمرات مناسب در پایه نهم، امکان قبولی در این رشته وجود دارد.</span>';
+            } else {
+                finalStatus = '<span class="failed">❌ با توجه به نمرات هفتم و هشتم، حتی با کسب نمره 20 در پایه نهم نیز نمی‌توانید به حدنصاب برخی دروس برسید.</span>';
+            }
             
             resultHtml += `
-                <p class="${allPassed ? 'passed' : 'failed'}">
-                    <strong>نتیجه نهایی:</strong> 
-                    ${allPassed ? 
-                        '<span class="permission-badge permission-yes">مجاز</span> شما در این رشته مجاز هستید.' : 
-                        '<span class="permission-badge permission-no">غیرمجاز</span> شما در این رشته مجاز نیستید.'
-                    }
+                <p class="${allPossible ? 'passed' : 'failed'}">
+                    <strong>نتیجه نهایی:</strong><br>
+                    ${finalStatus}
                 </p>
+                <div class="calculation-info">
+                    <strong>فرمول محاسبه:</strong> (نمره هفتم × 1 + نمره هشتم × 1 + نمره نهم × 3) ÷ 5
+                </div>
             `;
 
             document.getElementById("result").innerHTML = resultHtml;

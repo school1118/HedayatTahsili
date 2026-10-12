@@ -243,7 +243,7 @@
   <button data-tab="out">📤 خروج کالا</button>
   <button data-tab="cycle">🔄 چرخه موتورها</button>
   <button data-tab="inv">📦 موجودی</button>
-  <button data-tab="finance">💰 مالی و اقساط</button>
+  <button data-tab="stocksearch">🔎 جستجوی موجودی</button>
   <button data-tab="kardex">📒 کاردکس</button>
   <button data-tab="archive">🗄️ بایگانی</button>
   <button data-tab="report">📈 گزارش شعب</button>
@@ -320,8 +320,8 @@ let uiState = {
   cycFilters: { status: "", q: "" },
   invTab: "active",
   arcTab: "archived",
-  finTab: "dash",
-  page: { inv: 1, cyc: 1, size: 50, archive: 1, del: 1, kx: 1 }
+  page: { inv: 1, cyc: 1, size: 50, archive: 1, del: 1, kx: 1, ss: 1 },
+  ssBranches: []
 };
 /* حذف نرم: هیچ داده‌ای از سرور پاک نمی‌شود، فقط علامت‌گذاری می‌شود */
 const ARCHIVE_DAYS = 365;          // بالای یک سال → آرشیو
@@ -549,11 +549,12 @@ function gotoPage(key, p) {
   else if (key === "archive") renderArchive();
   else if (key === "del") renderDeleted();
   else if (key === "kx" && typeof renderKardex === "function") renderKardex();
+  else if (key === "ss" && typeof renderStockSearch === "function") renderStockSearch();
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 function setPageSize(v) {
   uiState.page.size = Number(v) || 50;
-  uiState.page.inv = 1; uiState.page.cyc = 1; uiState.page.archive = 1; uiState.page.del = 1; uiState.page.kx = 1;
+  uiState.page.inv = 1; uiState.page.cyc = 1; uiState.page.archive = 1; uiState.page.del = 1; uiState.page.kx = 1; uiState.page.ss = 1;
   renderInventory(); renderCycle();
   if (typeof renderArchive === "function") renderArchive();
   if (typeof renderDeleted === "function") renderDeleted();
@@ -1273,8 +1274,6 @@ function buildPanels() {
     <h2>داشبورد <span class="badge-branch" id="dashBranchLabel">-</span></h2>
     <div class="stat-cards" id="dashCards"></div>
     <div id="dashAlerts"></div>
-    <h3>💰 خلاصه مالی</h3>
-    <div id="dashFinance" class="stat-cards"></div>
     <h3>🧩 موجودی گروه‌ها</h3>
     <div id="groupCards" class="stat-cards"></div>
     <div class="row-flex">
@@ -1298,6 +1297,7 @@ function buildPanels() {
     <div class="grid" id="inForm"></div>
     <div class="actions">
       <button class="btn success" onclick="addEntry()">✅ ثبت ورود</button>
+      <button class="btn purple" onclick="openRecentEntries()">✏️ ویرایش آخرین ورودی‌ها</button>
       <button class="btn gray" onclick="clearForm('in')">پاک کردن فرم</button>
       <span class="helper">Ctrl+Enter برای ثبت سریع</span>
     </div>
@@ -1308,6 +1308,7 @@ function buildPanels() {
     <div class="grid" id="outForm"></div>
     <div class="actions">
       <button class="btn warn" onclick="addExit()">📤 ثبت خروج</button>
+      <button class="btn purple" onclick="editSelectedOutItem()">✏️ ویرایش موتور انتخاب‌شده</button>
       <button class="btn gray" onclick="clearForm('out')">پاک کردن فرم</button>
     </div>
   </div>
@@ -1397,50 +1398,18 @@ function buildPanels() {
     <div id="arcTable"></div>
   </div>
 
-  <div class="panel" id="tab-finance">
-    <h2>💰 مالی و اقساط <span class="badge-branch" id="finBranchLabel">-</span></h2>
-    <div class="tabs-sub" id="finTabs">
-      <button class="active" data-fintab="dash">📊 داشبورد مالی</button>
-      <button data-fintab="debtors">💰 بدهکاران</button>
-      <button data-fintab="due">⏰ سررسیدها</button>
-      <button data-fintab="checks">🧾 چک‌ها</button>
-      <button data-fintab="search">🔎 جستجوی پلاک</button>
+  <div class="panel" id="tab-stocksearch">
+    <h2>🔎 جستجوی موجودی بین شعبه‌ها <span class="badge-branch">فقط مشاهده</span></h2>
+    <p class="alert info">🔎 همه موتورهای <b>موجود</b> شعبه‌ها را یکجا ببینید و بر اساس نام، حجم، رنگ، شماره موتور، شاسی یا پلاک جستجو کنید. این بخش <b>فقط خواندنی</b> است (امکان ویرایش/حذف ندارد).</p>
+    <div class="toolbar">
+      <div class="field search"><label>🔍 جستجو</label><input id="ss_q" placeholder="نام، حجم، رنگ، شماره موتور، شاسی، پلاک..." oninput="renderStockSearch()"></div>
+      <button class="btn gray" onclick="resetStockSearch()">پاک کردن</button>
+      <button class="btn purple" onclick="exportStockSearchCSV()">⬇️ CSV</button>
+      <button class="btn gray" onclick="printSection()">🖨️ چاپ</button>
     </div>
-    <div id="finBody">
-      <div class="fin-pane" data-finpane="dash"><div id="finDash"></div></div>
-      <div class="fin-pane" data-finpane="debtors" style="display:none;">
-        <div class="toolbar">
-          <div class="field search"><label>🔍 جستجو</label><input id="fin_debtor_q" placeholder="نام، موبایل، کد ملی، پلاک، قولنامه" oninput="renderDebtors()"></div>
-          <button class="btn purple" onclick="exportDebtorsCSV()">⬇️ CSV</button>
-          <button class="btn gray" onclick="printSection()">🖨️ چاپ</button>
-        </div>
-        <div id="finDebtorCount" class="helper"></div>
-        <div id="finDebtors"></div>
-      </div>
-      <div class="fin-pane" data-finpane="due" style="display:none;">
-        <p class="alert info">⏰ اقساط سررسیدشده و نزدیک به سررسید. برای پرداخت هر قسط روی دکمه «پرداخت» بزنید.</p>
-        <div id="finDue"></div>
-      </div>
-      <div class="fin-pane" data-finpane="checks" style="display:none;">
-        <div class="toolbar">
-          <div class="field search"><label>🔍 جستجو</label><input id="fin_chk_q" placeholder="شماره/سریال/بانک/پلاک/مشتری" oninput="renderChecks()"></div>
-          <div class="field"><label>وضعیت</label><select id="fin_chk_status" onchange="renderChecks()">
-            <option value="">همه</option>
-            <option>دریافت‌شده</option><option>در انتظار وصول</option><option>وصول‌شده</option><option>برگشتی</option><option>ابطال‌شده</option>
-          </select></div>
-          <button class="btn purple" onclick="exportChecksCSV()">⬇️ CSV</button>
-          <button class="btn gray" onclick="printSection()">🖨️ چاپ</button>
-        </div>
-        <div id="finChkCount" class="helper"></div>
-        <div id="finChecks"></div>
-      </div>
-      <div class="fin-pane" data-finpane="search" style="display:none;">
-        <div class="toolbar">
-          <div class="field search"><label>🔍 شماره پلاک / مشتری / کد ملی</label><input id="fin_search_q" placeholder="مثلا 832/12345" oninput="renderFinanceSearch()"></div>
-        </div>
-        <div id="finSearch"></div>
-      </div>
-    </div>
+    <div id="ssBranches" class="tabs-sub" style="flex-wrap:wrap;"></div>
+    <div id="ssCount" class="helper"></div>
+    <div id="ssTable"></div>
   </div>
 
   <div class="panel" id="tab-log">
@@ -1602,7 +1571,6 @@ function buildForms() {
       <div class="helper" id="out_itemHint"></div>
     </div>
     <div class="field" style="grid-column:1/-1;"><label>توضیحات</label><textarea id="out_note" rows="2"></textarea></div>
-    <div id="out_financeSection" style="grid-column:1/-1;display:none;">${typeof financeFormHtml === "function" ? financeFormHtml("out") : ""}</div>
   `;
 }
 
@@ -1632,7 +1600,7 @@ function renderBranchTabs() {
   }
 
   const label = branchLabel(activeBranch);
-  ["dashBranchLabel", "inBranchLabel", "outBranchLabel", "cycBranchLabel", "invBranchLabel", "finBranchLabel"].forEach(id => {
+  ["dashBranchLabel", "inBranchLabel", "outBranchLabel", "cycBranchLabel", "invBranchLabel"].forEach(id => {
     const el = $(id); if (el) el.textContent = label;
   });
   if ($("dashBranchLabel")) $("dashBranchLabel").textContent = activeBranch === MANAGER ? "👔 مدیر مرکزی - نمای کلی" : `شعبه: ${activeBranch}`;
@@ -1651,7 +1619,7 @@ function selectBranch(b) {
 const TAB_RENDERERS = {
   dash: renderDashboard, inv: renderInventory, cycle: renderCycle, out: refreshOutItems,
   report: renderReport, log: renderLog, settings: renderSettings,
-  finance: renderFinance,
+  stocksearch: renderStockSearch,
   archive: renderArchive, kardex: renderKardex,
   backup: () => { renderStorageInfo(); refreshFileBanner(); }
 };
@@ -1691,20 +1659,6 @@ function setupNav() {
       b.classList.add("active");
       uiState.arcTab = b.dataset.arctab;
       renderArchive();
-    };
-  });
-  document.querySelectorAll("#finTabs button").forEach(b => {
-    b.onclick = () => {
-      document.querySelectorAll("#finTabs button").forEach(x => x.classList.remove("active"));
-      b.classList.add("active");
-      uiState.finTab = b.dataset.fintab;
-      document.querySelectorAll("#finBody .fin-pane").forEach(p => {
-        p.style.display = p.dataset.finpane === uiState.finTab ? "block" : "none";
-      });
-      if (uiState.finTab === "debtors") renderDebtors();
-      else if (uiState.finTab === "due") renderDueReport();
-      else if (uiState.finTab === "checks") renderChecks();
-      else if (uiState.finTab === "search") renderFinanceSearch();
     };
   });
 }
@@ -1851,17 +1805,6 @@ function toggleOutType() {
   $("f_transferKind").style.display = isSale ? "none" : "flex";
   ["f_buyer", "f_father", "f_national", "f_birth", "f_buyerType", "f_phone", "f_payStatus", "f_salePrice", "f_discount", "f_tradeIn", "f_address"]
     .forEach(id => { $(id).style.display = isSale ? "flex" : "none"; });
-  if ($("out_financeSection")) {
-    $("out_financeSection").style.display = isSale ? "block" : "none";
-    if (isSale && !$("out_financeSection").dataset.init) {
-      $("out_financeSection").dataset.init = "1";
-      ["out_finPrepayDate", "out_finPaidDate", "out_instFirst"].forEach(id => {
-        const el = $(id); if (el) { buildJalaliPicker(el); attachManualDate(el); el.value = todayJalali(); }
-      });
-      if (typeof attachNumFmt === "function") attachNumFmt($("out_financeSection"));
-      if (typeof finToggleSaleMethod === "function") finToggleSaleMethod("out");
-    }
-  }
   if (isSale) { fillPayStatus(); }
   refreshOutItems();
 }
@@ -1869,11 +1812,13 @@ function fillPayStatus() {
   const sel = $("out_payStatus");
   if (!sel) return;
   const buyerType = $("out_buyerType").value;
+  const prev = sel.value;
   sel.innerHTML = "";
   (buyerType === "همکار" ? COLLEAGUE_PAY : CUSTOMER_PAY).forEach(o => {
     const op = document.createElement("option"); op.value = o; op.textContent = o;
     sel.appendChild(op);
   });
+  if (prev) sel.value = prev;
 }
 function filterOutItems() {
   const q = ($("out_itemSearch").value || "").trim().toLowerCase();
@@ -1948,10 +1893,6 @@ async function addExit() {
     });
     item.saleDate = date;
     item.soldBy = userTag();
-    if (typeof finBuildFromForm === "function") {
-      if ($("out_saleMethod")) $("out_saleMethod").value = normSaleMethod(payStatus);
-      await finBuildFromForm("out", item, { salePrice, discount: getNumber($("out_discount")), tradeIn: getNumber($("out_tradeIn")), date, payStatus });
-    }
     item.reserveInfo = null;
     changeStatusInternal(item, STATUS.SALE, `فروش به ${buyer} (${item.saleInfo.buyerType}) - قولنامه:${receipt} - وضعیت:${payStatus}`);
   } else {
@@ -2103,8 +2044,8 @@ function renderCycle() {
           <button class="btn small warn" onclick="nextStatusClick('${it.id}')">${nextLabel}</button>
           ${reserveBtn}${unreserveBtn}
           <button class="btn small success" onclick="editItem('${it.id}')">✏️</button>
+          ${it.status === STATUS.IN && it.payStatus === "امانی" ? `<button class="btn small warn" onclick="openConvertConsignment('${it.id}')" title="تبدیل امانی به موجودی اصلی">💱</button>` : ""}
           <button class="btn small" onclick="showHistory('${it.id}')">📜</button>
-          ${it.saleInfo ? `<button class="btn small purple" title="پرونده مالی" onclick="openPlateFinance('${it.id}')">💰</button>` : ""}
           ${canManage() ? `<button class="btn small" onclick="openStockAdjust('${it.id}')" title="اصلاح موجودی">🔧</button>
           <button class="btn small" onclick="openSupplierReturn('${it.id}')" title="برگشت به تامین‌کننده">↩️</button>` : ""}
         </td>
@@ -2262,7 +2203,7 @@ function openSaleModal(item) {
       <div class="field"><label>کد ملی</label><input id="m_national" maxlength="10"></div>
       <div class="field"><label>تاریخ تولد</label><div class="dp-wrap"><input class="dp-input" id="m_birth" data-dp-back="80" inputmode="numeric" placeholder="1370/01/01"></div></div>
       <div class="field"><label>شماره تماس</label><input id="m_phone"></div>
-      <div class="field"><label>وضعیت فروش</label><select id="m_payStatus"></select></div>
+      <div class="field"><label>وضعیت فروش</label><select id="m_payStatus" onchange="mFillPaySync()"></select></div>
       <div class="field"><label>قیمت فروش (تومان)</label><input id="m_price" class="num-fmt"></div>
       <div class="field"><label>قرعه‌کشی/قولنامه *</label><input id="m_receipt"></div>
       <div class="field" style="grid-column:1/-1;"><label>آدرس</label><textarea id="m_address" rows="2"></textarea></div>
@@ -2305,7 +2246,7 @@ function openSaleModal(item) {
     attachNumFmt($("modalMsg"));
     buildJalaliPicker($("m_birth"));
     if ($("m_birth")) attachManualDate($("m_birth"));
-    ["m_finPrepayDate", "m_finPaidDate", "m_instFirst"].forEach(id => {
+    ["m_finPrepayDate", "m_finPaidDate", "m_instFirst", "m_chkFirst"].forEach(id => {
       const el = $(id); if (el) { buildJalaliPicker(el); attachManualDate(el); el.value = todayJalali(); }
     });
     if (typeof finToggleSaleMethod === "function") finToggleSaleMethod("m");
@@ -2313,10 +2254,22 @@ function openSaleModal(item) {
 }
 function mFillPay() {
   const sel = $("m_payStatus"); if (!sel) return;
+  const prev = sel.value;
   sel.innerHTML = "";
   ($("m_buyerType").value === "همکار" ? COLLEAGUE_PAY : CUSTOMER_PAY).forEach(o => {
     const op = document.createElement("option"); op.value = o; op.textContent = o; sel.appendChild(op);
   });
+  if (prev) sel.value = prev;
+  if ($("m_saleMethod") && typeof normSaleMethod === "function") {
+    $("m_saleMethod").value = normSaleMethod(sel.value);
+    if (typeof finToggleSaleMethod === "function") finToggleSaleMethod("m");
+  }
+}
+/* فقط روش فروش را از وضعیت فروش هماهنگ می‌کند (بدون بازسازی گزینه‌ها) */
+function mFillPaySync() {
+  if (!$("m_payStatus")) return;
+  const method = typeof normSaleMethod === "function" ? normSaleMethod($("m_payStatus").value) : $("m_payStatus").value;
+  if ($("m_saleMethod")) { $("m_saleMethod").value = method; if (typeof finToggleSaleMethod === "function") finToggleSaleMethod("m"); }
 }
 
 /* ==========================================================================
@@ -2460,7 +2413,7 @@ function historyCard(h, refItem) {
   </div>`;
 }
 function actionLabel(a) {
-  return { in: "📥 ورود", sale: "💰 فروش", transfer: "🔀 انتقال", return: "🔄 برگشتی", status: "🔄 تغییر وضعیت", edit: "✏️ ویرایش", reserve: "🔖 رزرو", exit: "📤 خروج", delete: "🗑️ حذف", restore: "♻️ بازگردانی", archive: "📦 آرشیو", finance: "💳 رویداد مالی" }[a] || a;
+  return { in: "📥 ورود", sale: "💰 فروش", transfer: "🔀 انتقال", return: "🔄 برگشتی", status: "🔄 تغییر وضعیت", edit: "✏️ ویرایش", reserve: "🔖 رزرو", convert: "💱 تبدیل امانی", exit: "📤 خروج", delete: "🗑️ حذف", restore: "♻️ بازگردانی", archive: "📦 آرشیو", finance: "💳 رویداد مالی" }[a] || a;
 }
 function statusBadge(s) {
   const map = { "موجود": "b-in", "رزرو": "b-trust", "فروش": "b-sale", "خروج": "b-out", "برگشتی": "b-return" };
@@ -2489,7 +2442,7 @@ function showHistory(itemId) {
     ${item.createdBy ? `<div><b>ثبت‌کننده:</b> ${esc(item.createdBy)}</div>` : ""}
   </div>` : `<div class="alert red">🗑️ این موتور حذف شده است، اما تاریخچه آن برای همیشه حفظ شده.</div>`;
   const body = hist.length ? hist.map(h => historyCard(h, item)).join("") : '<div class="empty">تاریخچه‌ای ثبت نشده</div>';
-  const finBtn = (item && item.saleInfo) ? `<div class="actions"><button class="btn purple" onclick="openPlateFinance('${item.id}')">💰 پرونده مالی کامل</button></div>` : "";
+  const finBtn = "";
   openModal(`📜 تاریخچه: ${esc((item && item.company) || "")} ${esc((item && item.name) || "")}`, head + finBtn + body, null);
 }
 /* آرشیو کامل تاریخچه همه موتورها (شامل حذف‌شده‌ها) */
@@ -2633,6 +2586,8 @@ function renderInventory() {
       <td style="white-space:nowrap;">
         <button class="btn small success" onclick="editItem('${en.id}')">✏️</button>
         <button class="btn small" onclick="showHistory('${en.id}')">📜</button>
+        ${en.status === STATUS.IN && en.payStatus === "امانی" ? `<button class="btn small warn" onclick="openConvertConsignment('${en.id}')" title="تبدیل امانی به موجودی اصلی">💱</button>` : ""}
+        ${canManage() && en.status === STATUS.IN ? `<button class="btn small" onclick="openSupplierReturn('${en.id}')" title="مرجوعی به تأمین‌کننده">↩️</button>` : ""}
         <button class="btn small" onclick="archiveItem('${en.id}')" title="آرشیو">📦</button>
         ${canManage() ? `<button class="btn small danger" onclick="deleteItem('${en.id}')">🗑️</button>` : ""}
       </td>
@@ -2747,7 +2702,6 @@ function renderDashboard() {
   const gWarns = groupsStatus().filter(x => x.state === "low" || x.state === "empty");
   if (gWarns.length) alerts.push(`<div class="alert red">🧩 <b>هشدار گروه‌ها:</b> ${gWarns.map(x => `${esc(x.g.label)} (${x.count}/${x.g.min})`).join("، ")}</div>`);
   $("dashAlerts").innerHTML = alerts.join("");
-  renderDashFinance();
   renderGroupCards();
 
   renderSalesChart(items);
@@ -3112,6 +3066,7 @@ function openStocktakeByIndex(i) {
 function openSupplierReturn(itemId) {
   const it = DB.items.find(i => i.id === itemId);
   if (!it) return;
+  if (it.status !== STATUS.IN) { toast("فقط موتورهای موجود و نافروخته را می‌توان به تأمین‌کننده برگرداند", false); return; }
   const html = `
     <p class="helper">موتور: <b>${esc(it.company)} ${esc(it.name)}</b> (شاسی: ${esc(it.chassis) || "-"})</p>
     <div class="field"><label>تامین‌کننده</label><input id="sr_supplier" value="${esc(it.supplier || "")}"></div>
@@ -3322,1205 +3277,165 @@ function exportStocktakeCSV() {
   toast("✅ فایل CSV انبارگردانی دانلود شد");
 }
 /* ==========================================================================
-   بخش مالی: فروش، پرداخت، اقساط و چک‌ها
-   ==========================================================================
-   ساختار داده (روی item.saleInfo ذخیره می‌شود؛ هیچ سیستم موازی ساخته نشد):
-     saleInfo.finance = {
-       financeId, branch, createdBy, createdAt,
-       salePrice, discount, tradeIn, extraCost, finalAmount,
-       saleMethod: "نقدی"|"چکی"|"اقساطی",
-       prepay:  { id, amount, date, method, tracking, check:{...}, note, by, at } | null,
-       payments: [ { id, amount, date, method, tracking, checkId, installmentId, note, by, at } ],
-       installments: [ { id, seq, dueDate, amount, type:"نقدی"|"چک", paid, penalty, penaltyRate, payments:[ids], status, checkId } ],
-       checks: [ { id, kind:"sale"|"prepay"|"payment"|"installment", amount, number, serial, bank, branch, payee, date, dueDate, clearedDate, tracking, note, status, plate, customer, by, at, history:[] } ],
-       guarantors: [ { name, national, phone, address } ],
-       dueMode, startDate, count, ratePct, intervalDays, penaltyRate,
-       history: [ { at, by, action, note } ],
-       void: false
-     }
+   قابلیت‌های جدید نسخه انبارداری (بدون بخش مالی)
+   ۱) جستجوی بین‌شعبه‌ای موجودی — فقط‌خواندنی
+   ۲) تبدیل موتور امانی به موجودی اصلی
+   ۳) مرجوعی به تأمین‌کننده (تکمیل در part14)
+   ۴) ویرایش از داخل فرم ورود و خروج
    ========================================================================== */
 
-const FIN_METHODS = ["نقدی", "کارت به کارت", "واریز بانکی", "چک"];
-const FIN_SALE_METHODS = ["نقدی", "چکی", "اقساطی"];
-const INST_TYPES = ["نقدی", "چک"];
-const CHECK_STATUS = { RECV: "دریافت‌شده", WAIT: "در انتظار وصول", CLEARED: "وصول‌شده", BOUNCED: "برگشتی", VOID: "ابطال‌شده" };
-const INST_STATUS = { UNPAID: "پرداخت نشده", PARTIAL: "بخشی پرداخت شده", PAID: "پرداخت شده", OVERDUE: "معوق", PENALTY: "دارای جریمه" };
-
-/* ---------- دسترسی به ساختار مالی یک موتور ---------- */
-function finOf(item) {
-  if (!item) return null;
-  if (!item.saleInfo) return null;
-  if (!item.saleInfo.finance) {
-    // ساختار مالی را از داده قدیمی می‌سازیم (بدون از دست دادن اطلاعات)
-    item.saleInfo.finance = finDefaults(item.saleInfo, item);
-  }
-  return item.saleInfo.finance;
+/* =========================================================================
+   ۱) جستجوی بین‌شعبه‌ای موجودی (فقط مشاهده)
+   ========================================================================= */
+function ssAllowedBranches() {
+  if (canManage()) return branches();
+  return (currentUser && currentUser.branch && currentUser.branch !== MANAGER)
+    ? [currentUser.branch] : branches();
 }
-function finDefaults(sale, item) {
-  const f = {
-    financeId: uid("fin"), branch: item ? item.branch : "",
-    createdBy: sale.soldBy || (currentUser ? currentUser.username : ""),
-    createdAt: new Date().toISOString(),
-    salePrice: sale.salePrice || 0, discount: sale.discount || 0,
-    tradeIn: sale.tradeIn || 0, extraCost: sale.extraCost || 0,
-    finalAmount: sale.finalAmount || finFinal(sale.salePrice || 0, sale.discount || 0, sale.tradeIn || 0, sale.extraCost || 0),
-    saleMethod: normSaleMethod(sale.payStatus),
-    prepay: null,
-    payments: [], installments: [], checks: [], guarantors: sale.guarantors || [],
-    dueMode: "auto", startDate: "", count: 0, ratePct: 0, intervalDays: 30, penaltyRate: 0,
-    history: [], void: false
-  };
-  // اگر فروش قدیمی مبلغ پرداختی داشت، یک پرداخت اولیه ثبت می‌کنیم
-  if (sale.prepayAmount > 0) {
-    f.prepay = { id: uid("pay"), amount: sale.prepayAmount, date: sale.date || "", method: "نقدی", tracking: "", note: "پیش‌پرداخت (از داده قدیمی)", by: f.createdBy, at: f.createdAt };
-  }
-  if (sale.paidAmount > 0 && !f.prepay) {
-    f.payments.push({ id: uid("pay"), amount: sale.paidAmount, date: sale.date || "", method: "نقدی", tracking: "", installmentId: null, note: "پرداخت اولیه (از داده قدیمی)", by: f.createdBy, at: f.createdAt });
-  }
-  return f;
+function ssSelectedBranches() {
+  const allowed = ssAllowedBranches();
+  const sel = (uiState.ssBranches || []).filter(b => allowed.includes(b));
+  return sel.length ? sel : allowed;
 }
-function normSaleMethod(p) {
-  if (!p) return "نقدی";
-  if (p === "چکی" || p === "چک" || p === "چکی اقساطی") return p === "چکی اقساطی" ? "اقساطی" : "چکی";
-  if (p === "اقساط" || p === "اقساطی") return "اقساطی";
-  return "نقدی";
+function toggleStockBranch(b) {
+  if (!uiState.ssBranches) uiState.ssBranches = [];
+  const i = uiState.ssBranches.indexOf(b);
+  if (i >= 0) uiState.ssBranches.splice(i, 1); else uiState.ssBranches.push(b);
+  renderStockSearch();
 }
-function finFinal(price, discount, tradeIn, extraCost) {
-  return Math.max(0, (Number(price) || 0) - (Number(discount) || 0) - (Number(tradeIn) || 0) + (Number(extraCost) || 0));
+function resetStockSearch() {
+  if ($("ss_q")) $("ss_q").value = "";
+  uiState.ssBranches = [];
+  renderStockSearch();
 }
-
-/* ---------- محاسبات مالی ---------- */
-function finTotals(item) {
-  const f = finOf(item);
-  if (!f) return { final: 0, paid: 0, remaining: 0, totalInstallments: 0, paidInstallments: 0, penalty: 0, overdueCount: 0, prepay: 0 };
-  const prepay = f.prepay ? (Number(f.prepay.amount) || 0) : 0;
-  const payments = (f.payments || []).filter(p => !p.void).reduce((s, p) => s + (Number(p.amount) || 0), 0);
-  const paid = prepay + payments;
-  const totalInstallments = (f.installments || []).reduce((s, i) => s + (Number(i.amount) || 0), 0);
-  const paidInstallments = (f.installments || []).reduce((s, i) => s + instPaid(i), 0);
-  const penalty = (f.installments || []).reduce((s, i) => s + (Number(i.penalty) || 0), 0);
-  const overdueCount = (f.installments || []).filter(i => instStatus(i, f) === INST_STATUS.OVERDUE || instStatus(i, f) === INST_STATUS.PENALTY).length;
-  return {
-    final: Number(f.finalAmount) || 0, prepay, paid, remaining: Math.max(0, (Number(f.finalAmount) || 0) - paid),
-    totalInstallments, paidInstallments, penalty, overdueCount,
-    installmentsRemaining: (f.installments || []).filter(i => instRemaining(i) > 0).length
-  };
+function ssMatches(en, q) {
+  if (!q) return true;
+  return [en.name, en.volume, en.color, en.engine, en.chassis, en.plate, en.company, en.group, en.year]
+    .filter(Boolean).join(" ").toLowerCase().includes(q);
 }
-/* مبلغ پرداختی یک قسط */
-function instPaid(inst) {
-  const direct = (inst.payments || []).reduce((s, p) => s + (Number(p.amount) || 0), 0);
-  return direct + (Number(inst.paidDirect) || 0);
-}
-function instRemaining(inst) { return Math.max(0, (Number(inst.amount) || 0) - instPaid(inst)); }
-function daysBetweenJalali(a, b) {
-  const ia = jalaliToISO(a), ib = jalaliToISO(b);
-  if (!ia || !ib) return 0;
-  return Math.round((new Date(ib).getTime() - new Date(ia).getTime()) / 86400000);
-}
-/* محاسبه/به‌روزرسانی جریمه یک قسط بر اساس امروز */
-function computeInstPenalty(inst, f) {
-  if (!inst || !inst.dueDate) return 0;
-  const total = instPaid(inst) + (Number(inst.paidDirect) || 0);
-  if (total >= (Number(inst.amount) || 0)) { inst.penalty = 0; return 0; }
-  const overdueDays = daysBetweenJalali(inst.dueDate, todayJalali());
-  if (overdueDays <= 0) { inst.penalty = 0; return 0; }
-  const base = instRemaining(inst);
-  const rate = Number(inst.penaltyRate != null ? inst.penaltyRate : (f ? f.penaltyRate : 0)) || 0;
-  // نرخ روزانه: نرخ ماهانه تقسیم بر ۳۰، درصدی از مبلغ مانده
-  const pen = Math.round(base * (rate / 100) * (overdueDays / 30));
-  inst.penalty = pen; inst.overdueDays = overdueDays;
-  return pen;
-}
-/* وضعیت یک قسط */
-function instStatus(inst, f) {
-  const amount = Number(inst.amount) || 0;
-  const paid = instPaid(inst);
-  if (paid >= amount && amount > 0) return INST_STATUS.PAID;
-  const overdue = inst.dueDate && daysBetweenJalali(inst.dueDate, todayJalali()) > 0;
-  if (overdue) { computeInstPenalty(inst, f); return (Number(inst.penalty) || 0) > 0 ? INST_STATUS.PENALTY : INST_STATUS.OVERDUE; }
-  if (paid > 0) return INST_STATUS.PARTIAL;
-  return INST_STATUS.UNPAID;
-}
-function instStatusBadge(inst, f) {
-  const s = instStatus(inst, f);
-  const map = { "پرداخت شده": "b-in", "پرداخت نشده": "b-check", "بخشی پرداخت شده": "b-trust", "معوق": "b-out", "دارای جریمه": "b-out" };
-  return `<span class="badge ${map[s] || ""}">${esc(s)}</span>`;
-}
-/* وضعیت کلی فروش از روی پرداخت‌ها */
-function finSaleStatus(item) {
-  const f = finOf(item);
-  if (!f || f.void) return f && f.void ? "ابطال‌شده" : "-";
-  const t = finTotals(item);
-  const checks = f.checks || [];
-  const activeChecks = checks.filter(c => c.status !== CHECK_STATUS.VOID);
-  if (activeChecks.some(c => c.status === CHECK_STATUS.BOUNCED)) return "چک برگشتی";
-  if (activeChecks.some(c => c.status === CHECK_STATUS.WAIT)) return "دارای چک در انتظار وصول";
-  if (t.remaining <= 0) return "تسویه‌شده";
-  if ((f.installments || []).some(i => { const s = instStatus(i, f); return s === INST_STATUS.OVERDUE || s === INST_STATUS.PENALTY; })) return "معوق";
-  if (t.paid > 0) return "در حال پرداخت";
-  return "دارای مانده";
-}
-function finStatusBadge(status) {
-  const map = {
-    "تسویه‌شده": "b-in", "در حال پرداخت": "b-sale", "دارای مانده": "b-check",
-    "معوق": "b-out", "دارای چک در انتظار وصول": "b-check", "چک برگشتی": "b-out", "ابطال‌شده": "b-out"
-  };
-  return `<span class="badge ${map[status] || ""}">${esc(status || "-")}</span>`;
-}
-function payMethodBadge(m) {
-  const map = { "نقدی": "b-in", "کارت به کارت": "b-sale", "واریز بانکی": "b-transfer", "چک": "b-check" };
-  return `<span class="badge ${map[m] || ""}">${esc(m || "-")}</span>`;
-}
-function checkStatusBadge(s) {
-  const map = { "دریافت‌شده": "b-trust", "در انتظار وصول": "b-check", "وصول‌شده": "b-in", "برگشتی": "b-out", "ابطال‌شده": "b-low" };
-  return `<span class="badge ${map[s] || ""}">${esc(s || "-")}</span>`;
-}
-
-/* ---------- ثبت رویداد مالی در تاریخچه append-only ---------- */
-function finLog(item, f, action, note, before, after) {
-  f.history = f.history || [];
-  const rec = {
-    at: new Date().toISOString(), date: todayJalali(),
-    by: userTag(), action, note: note || "", before: before || null, after: after || null
-  };
-  f.history.push(rec);
-  pushHistory({
-    itemId: item.id, branch: item.branch, action: "finance",
-    fromStatus: item.status, toStatus: item.status, date: todayJalali(),
-    note: `${action}${note ? " — " + note : ""}`,
-    by: userTag(), plate: item.plate || "",
-    extra: { finance: action, before: before || null, after: after || null }
-  });
-}
-
-/* ---------- ساختن شناسه یکتا برای اجزای مالی ---------- */
-function finId(kind) { return uid(kind); }
-
-/* ==========================================================================
-   تولید برنامه اقساط
-   ========================================================================== */
-/* افزودن ماه شمسی به یک تاریخ */
-function jalaliAddMonths(jdate, months) { return addMonthsJalali(jdate, months) || jdate; }
-function isoToJalaliStr(dt) {
-  const [jy, jm, jd] = toJalali(dt.getFullYear(), dt.getMonth() + 1, dt.getDate());
-  return `${jy}/${String(jm).padStart(2, "0")}/${String(jd).padStart(2, "0")}`;
-}
-function jalaliAddDays(jdate, days) {
-  const iso = jalaliToISO(jdate);
-  if (!iso) return jdate;
-  const dt = new Date(iso); dt.setDate(dt.getDate() + days);
-  return isoToJalaliStr(dt);
-}
-/* تولید پیش‌نویس اقساط (بدون ذخیره) */
-function buildInstallmentPlan(opts) {
-  const { payable, count, intervalDays, firstDate, type, penaltyRate } = opts;
-  const n = Math.max(1, Math.min(120, parseInt(count) || 1));
-  const interval = Math.max(1, parseInt(intervalDays) || 30);
-  const total = Math.max(0, Number(payable) || 0);
-  const base = Math.floor(total / n);
-  const rem = total - base * n;
-  const list = [];
-  for (let i = 0; i < n; i++) {
-    const amt = base + (i >= n - rem && rem > 0 ? 1 : 0);
-    list.push({
-      id: uid("inst"), seq: i + 1,
-      dueDate: jalaliAddDays(firstDate, i * interval),
-      amount: amt, type: type || "نقدی",
-      payments: [], paidDirect: 0, penalty: 0, penaltyRate: penaltyRate || 0,
-      status: INST_STATUS.UNPAID
-    });
-  }
-  return list;
-}
-/* مجموع اقساط */
-function planTotal(list) { return (list || []).reduce((s, i) => s + (Number(i.amount) || 0), 0); }
-
-/* ==========================================================================
-   پرداخت‌ها
-   ========================================================================== */
-/* ثبت پرداخت روی یک قسط یا فروش */
-function finAddPayment(item, f, pay) {
-  pay.id = pay.id || uid("pay");
-  pay.by = userTag();
-  pay.at = new Date().toISOString();
-  pay.method = pay.method || "نقدی";
-  f.payments.push(pay);
-  if (pay.installmentId) {
-    const inst = (f.installments || []).find(i => i.id === pay.installmentId);
-    if (inst) {
-      if (pay.method === "چک" && pay.checkId) {
-        if (!inst.checks) inst.checks = [];
-        inst.checks.push(pay.checkId);
-      }
-      inst.payments = inst.payments || [];
-      inst.payments.push({ id: pay.id, amount: pay.amount, date: pay.date, method: pay.method, checkId: pay.checkId || null });
-      // به‌روزرسانی status
-      inst.status = instStatus(inst, f);
+function renderStockSearch() {
+  const allowed = ssAllowedBranches();
+  const sel = ssSelectedBranches();
+  const chips = $("ssBranches");
+  if (chips) {
+    if (allowed.length <= 1) {
+      chips.innerHTML = `<span class="chip">\U0001f3e2 شعبه: ${esc(allowed[0] || "-")}</span>`;
+    } else {
+      const allActive = sel.length === allowed.length;
+      chips.innerHTML =
+        `<button class="${allActive ? "active" : ""}" onclick="uiState.ssBranches=[];renderStockSearch()">همه شعب (${allowed.length})</button>` +
+        allowed.map(b => {
+          const on = sel.includes(b) && !allActive;
+          return `<button class="${on ? "active" : ""}" onclick="toggleStockBranch('${esc(b)}')">${esc(b)}</button>`;
+        }).join("");
     }
   }
-  return pay;
-}
-/* حذف/ابطال پرداخت (نرم — سابقه می‌ماند) */
-function finVoidPayment(item, f, payId, reason) {
-  const p = (f.payments || []).find(x => x.id === payId);
-  if (!p) return;
-  p.void = true; p.voidReason = reason || ""; p.voidBy = userTag(); p.voidAt = new Date().toISOString();
-  if (p.installmentId) {
-    const inst = (f.installments || []).find(i => i.id === p.installmentId);
-    if (inst && inst.payments) inst.payments = inst.payments.filter(x => x.id !== payId);
-  }
-  finLog(item, f, "ابطال پرداخت", `مبلغ ${money(p.amount)}${reason ? " — " + reason : ""}`, { amount: p.amount, date: p.date, method: p.method });
-}
-
-/* ==========================================================================
-   چک‌ها
-   ========================================================================== */
-function finAddCheck(item, f, chk) {
-  chk.id = chk.id || uid("chk");
-  chk.status = chk.status || CHECK_STATUS.WAIT;
-  chk.plate = chk.plate || (item ? item.plate || "" : "");
-  chk.by = userTag(); chk.at = new Date().toISOString();
-  chk.history = [{ at: chk.at, by: chk.by, action: "ثبت چک", status: chk.status }];
-  f.checks.push(chk);
-  return chk;
-}
-function finSetCheckStatus(item, f, checkId, status, extra) {
-  const c = (f.checks || []).find(x => x.id === checkId);
-  if (!c) return;
-  const before = c.status;
-  c.status = status;
-  if (additionalCheckFields(status, extra)) Object.assign(c, additionalCheckFields(status, extra));
-  c.history = c.history || [];
-  c.history.push({ at: new Date().toISOString(), by: userTag(), action: "تغییر وضعیت چک", from: before, to: status });
-  finLog(item, f, "تغییر وضعیت چک", `${c.number || "-"} : ${before} → ${status}${extra && extra.note ? " — " + extra.note : ""}`, { status: before }, { status });
-}
-function additionalCheckFields(status, extra) {
-  if (!extra) return null;
-  const out = {};
-  if (status === CHECK_STATUS.CLEARED) {
-    out.clearedDate = extra.clearedDate || todayJalali();
-    out.clearedTracking = extra.tracking || "";
-    out.clearedBy = userTag(); out.clearedAt = new Date().toISOString();
-  }
-  if (status === CHECK_STATUS.BOUNCED) {
-    out.bouncedDate = extra.date || todayJalali();
-    out.bounceReason = extra.reason || "";
-  }
-  if (status === CHECK_STATUS.VOID) { out.voidReason = extra.reason || ""; out.voidBy = userTag(); }
-  return out;
-}
-
-/* ==========================================================================
-   سطح دسترسی مالی (کارمند فقط شعبه خودش)
-   ========================================================================== */
-function finScopeItems() {
-  const base = DB.items.filter(i => !i.deleted && i.saleInfo);
-  if (canManage()) return base;
-  return base.filter(i => i.branch === (currentUser ? currentUser.branch : activeBranch));
-}
-function finBranchAllowed(item) {
-  if (canManage()) return true;
-  return item && item.branch === (currentUser ? currentUser.branch : activeBranch);
-}
-
-/* ==========================================================================
-   داشبورد مالی
-   ========================================================================== */
-function renderFinance() {
-  if (!$("finBody")) return;
-  // هماهنگ‌سازی پنل فعال با تب انتخابی
-  document.querySelectorAll("#finBody .fin-pane").forEach(p => {
-    p.style.display = p.dataset.finpane === (uiState.finTab || "dash") ? "block" : "none";
-  });
-  const items = finScopeItems();
-  const t = todayJalali();
-  const month = t.slice(0, 7);
-  let sumFinal = 0, sumDiscount = 0, sumPrepay = 0, sumPaid = 0, sumRemaining = 0, sumInstallments = 0, sumPenalty = 0;
-  let todaySales = 0, monthSales = 0, overdueAmt = 0, debtorCount = 0;
-  let chkWait = 0, chkWaitAmt = 0, chkCleared = 0, chkClearedAmt = 0, chkBounced = 0, chkBouncedAmt = 0;
-  items.forEach(it => {
-    const f = finOf(it); if (!f) return;
-    const ft = finTotals(it);
-    const d = (f.createdAt || "").slice(0, 10);
-    sumFinal += ft.final; sumDiscount += (Number(f.discount) || 0); sumPrepay += ft.prepay;
-    sumPaid += ft.paid; sumRemaining += ft.remaining; sumInstallments += ft.totalInstallments; sumPenalty += ft.penalty;
-    if (it.saleDate === t) todaySales += ft.final;
-    if ((it.saleDate || "").slice(0, 7) === month) monthSales += ft.final;
-    if (ft.remaining > 0) { debtorCount++; }
-    (f.installments || []).forEach(i => {
-      const st = instStatus(i, f);
-      if (st === INST_STATUS.OVERDUE || st === INST_STATUS.PENALTY) overdueAmt += instRemaining(i);
-    });
-    (f.checks || []).forEach(c => {
-      if (c.status === CHECK_STATUS.WAIT) { chkWait++; chkWaitAmt += Number(c.amount) || 0; }
-      else if (c.status === CHECK_STATUS.CLEARED) { chkCleared++; chkClearedAmt += Number(c.amount) || 0; }
-      else if (c.status === CHECK_STATUS.BOUNCED) { chkBounced++; chkBouncedAmt += Number(c.amount) || 0; }
-    });
-  });
-  if ($("finDash")) $("finDash").innerHTML = `
-    <div class="stat-cards">
-      <div class="stat-card"><div class="num">${money(todaySales)}</div><div class="lbl">📅 فروش امروز</div></div>
-      <div class="stat-card purple"><div class="num">${money(monthSales)}</div><div class="lbl">🗓️ فروش این ماه</div></div>
-      <div class="stat-card green"><div class="num">${money(sumFinal)}</div><div class="lbl">💵 مبلغ کل فروش</div></div>
-      <div class="stat-card orange"><div class="num">${money(sumDiscount)}</div><div class="lbl">🏷️ مجموع تخفیف</div></div>
-      <div class="stat-card"><div class="num">${money(sumPrepay)}</div><div class="lbl">🤝 مجموع پیش‌پرداخت</div></div>
-      <div class="stat-card green"><div class="num">${money(sumPaid)}</div><div class="lbl">✅ مجموع پرداخت‌ها</div></div>
-      <div class="stat-card purple"><div class="num">${money(sumInstallments)}</div><div class="lbl">📆 مجموع اقساط</div></div>
-      <div class="stat-card red"><div class="num">${money(sumRemaining)}</div><div class="lbl">💰 مانده بدهکاران (${debtorCount})</div></div>
-      <div class="stat-card red"><div class="num">${money(overdueAmt)}</div><div class="lbl">⏰ مجموع معوقات</div></div>
-      <div class="stat-card orange"><div class="num">${money(sumPenalty)}</div><div class="lbl">⚖️ مجموع جریمه‌ها</div></div>
-      <div class="stat-card orange"><div class="num">${chkWait} — ${money(chkWaitAmt)}</div><div class="lbl">🧾 چک در انتظار وصول</div></div>
-      <div class="stat-card green"><div class="num">${chkCleared} — ${money(chkClearedAmt)}</div><div class="lbl">✅ چک وصول‌شده</div></div>
-      <div class="stat-card red"><div class="num">${chkBounced} — ${money(chkBouncedAmt)}</div><div class="lbl">↩️ چک برگشتی</div></div>
-    </div>`;
-  renderDueReport();
-  renderDebtors();
-  renderChecks();
-  renderFinanceSearch();
-}
-
-/* ==========================================================================
-   گزارش سررسید
-   ========================================================================== */
-function dueBucket(dueDate) {
-  const diff = daysBetweenJalali(todayJalali(), dueDate);
-  if (diff < 0) return "معوق";
-  if (diff === 0) return "امروز";
-  if (diff === 1) return "فردا";
-  if (diff <= 7) return "۷ روز آینده";
-  if (diff <= 30) return "۳۰ روز آینده";
-  return "بعدتر";
-}
-function renderDueReport() {
-  const el = $("finDue"); if (!el) return;
-  const buckets = { "معوق": [], "امروز": [], "فردا": [], "۷ روز آینده": [], "۳۰ روز آینده": [] };
-  finScopeItems().forEach(it => {
-    const f = finOf(it); if (!f) return;
-    (f.installments || []).forEach(i => {
-      if (instRemaining(i) <= 0) return;
-      const b = dueBucket(i.dueDate);
-      if (buckets[b]) buckets[b].push({ it, f, inst: i });
-    });
-  });
-  const order = ["معوق", "امروز", "فردا", "۷ روز آینده", "۳۰ روز آینده"];
-  const cls = { "معوق": "red", "امروز": "orange", "فردا": "info", "۷ روز آینده": "info", "۳۰ روز آینده": "info" };
-  el.innerHTML = order.map(b => {
-    const rows = buckets[b].sort((x, y) => String(x.inst.dueDate).localeCompare(String(y.inst.dueDate)));
-    return `<div class="alert ${cls[b]}" style="display:flex;justify-content:space-between;align-items:center;">
-      <b>${b}</b><span>${rows.length} قسط — ${money(rows.reduce((s, r) => s + instRemaining(r.inst), 0))} تومان</span></div>
-      ${rows.length ? `<div style="overflow-x:auto;margin-bottom:10px;"><table>
-        <thead><tr><th>سررسید</th><th>مشتری</th><th>پلاک</th><th>مبلغ قسط</th><th>پرداختی</th><th>مانده</th><th>جریمه</th><th>وضعیت</th><th>عملیات</th></tr></thead>
-        <tbody>${rows.slice(0, 100).map(r => `<tr>
-          <td>${esc(r.inst.dueDate)}</td>
-          <td>${esc(decryptSale(r.it.saleInfo).buyer) || "-"}</td>
-          <td style="direction:ltr;">${esc(r.it.plate) || "-"}</td>
-          <td>${money(r.inst.amount)}</td><td>${money(instPaid(r.inst))}</td>
-          <td class="neg">${money(instRemaining(r.inst))}</td>
-          <td>${r.inst.penalty ? money(r.inst.penalty) : "-"}</td>
-          <td>${instStatusBadge(r.inst, r.f)}</td>
-          <td><button class="btn small success" onclick="openInstallmentPay('${r.it.id}','${r.inst.id}')">پرداخت</button></td>
-        </tr>`).join("")}</tbody></table></div>` : ""}`;
-  }).join("");
-}
-
-/* ==========================================================================
-   گزارش بدهکاران
-   ========================================================================== */
-function renderDebtors() {
-  const el = $("finDebtors"); if (!el) return;
-  const q = ($("fin_debtor_q") ? $("fin_debtor_q").value : "").trim().toLowerCase();
-  let rows = finScopeItems().map(it => {
-    const f = finOf(it); const ft = finTotals(it);
-    const sale = decryptSale(it.saleInfo || {});
-    const openInst = (f.installments || []).filter(i => instRemaining(i) > 0);
-    const nearest = openInst.map(i => i.dueDate).sort()[0] || "-";
-    return {
-      it, f, sale, final: ft.final, paid: ft.paid, remaining: ft.remaining, penalty: ft.penalty,
-      instLeft: openInst.length, nearest, status: finSaleStatus(it)
-    };
-  }).filter(r => r.remaining > 0);
-  if (q) rows = rows.filter(r => [r.sale.buyer, r.sale.phone, r.sale.national, r.it.plate, r.sale.receipt, r.it.chassis]
-    .filter(Boolean).map(x => String(x).toLowerCase()).some(x => x.includes(q)));
-  rows.sort((a, b) => b.remaining - a.remaining);
-  const totalRem = rows.reduce((s, r) => s + r.remaining, 0);
-  if ($("finDebtorCount")) $("finDebtorCount").textContent = `${rows.length} بدهکار — مجموع مانده ${money(totalRem)} تومان`;
-  if (!rows.length) { el.innerHTML = '<div class="empty">بدهکاری یافت نشد</div>'; return; }
+  const q = ($("ss_q") ? $("ss_q").value : "").trim().toLowerCase();
+  let rows = DB.items.filter(en =>
+    !itemDeleted(en) && !itemArchived(en) && en.status === STATUS.IN && sel.includes(en.branch)
+  );
+  rows = rows.filter(en => ssMatches(en, q));
+  rows.sort((a, b) =>
+    String(a.branch).localeCompare(String(b.branch), "fa") ||
+    String(jalaliToISO(b.dateIn || "")).localeCompare(String(jalaliToISO(a.dateIn || "")))
+  );
+  const totalCount = rows.length;
+  const pg = paginate(rows, "ss");
+  if ($("ssCount")) $("ssCount").innerHTML = `<b>${totalCount}</b> موتور موجود در ${sel.length} شعبه — صفحه ${pg.cur} از ${pg.pages}`;
+  const el = $("ssTable"); if (!el) return;
+  if (!totalCount) { el.innerHTML = '<div class="empty">موتوری یافت نشد</div>'; return; }
   el.innerHTML = `<div style="overflow-x:auto;"><table>
-    <thead><tr><th>نام</th><th>پلاک</th><th>قولنامه</th><th>مبلغ فروش</th><th>پرداخت‌شده</th><th>مانده</th><th>جریمه</th><th>اقساط باقی</th><th>نزدیک‌ترین سررسید</th><th>وضعیت</th><th>عملیات</th></tr></thead>
-    <tbody>${rows.map(r => `<tr>
-      <td>${esc(r.sale.buyer) || "-"}<br><span class="helper">${esc(r.sale.phone) || ""}</span></td>
-      <td style="direction:ltr;">${esc(r.it.plate) || "-"}</td>
-      <td>${esc(r.sale.receipt) || "-"}</td>
-      <td>${money(r.final)}</td><td>${money(r.paid)}</td>
-      <td class="neg">${money(r.remaining)}</td><td>${r.penalty ? money(r.penalty) : "-"}</td>
-      <td>${r.instLeft}</td><td>${esc(r.nearest)}</td>
-      <td>${finStatusBadge(r.status)}</td>
-      <td><button class="btn small" onclick="openPlateFinance('${r.it.id}')">پرونده</button></td>
-    </tr>`).join("")}</tbody></table></div>`;
+    <thead><tr>
+      <th class="no-sort">#</th><th class="no-sort">شعبه</th><th class="no-sort">شرکت</th>
+      <th class="no-sort">نام موتور</th><th class="no-sort">حجم</th><th class="no-sort">رنگ</th>
+      <th class="no-sort">شماره موتور</th><th class="no-sort">شاسی</th><th class="no-sort">پلاک</th>
+      <th class="no-sort">تاریخ ورود</th>
+    </tr></thead><tbody>` +
+    pg.pageRows.map((en, i) => `<tr>
+      <td>${pg.from + i + 1}</td>
+      <td>${esc(en.branch)}</td>
+      <td>${esc(en.company)}</td>
+      <td><b>${esc(en.name)}</b></td>
+      <td>${esc(en.volume) || "-"}</td>
+      <td>${esc(en.color) || "-"}</td>
+      <td style="font-size:10px;direction:ltr;">${esc(en.engine) || "-"}</td>
+      <td style="font-size:10px;direction:ltr;">${esc(en.chassis) || "-"}</td>
+      <td style="direction:ltr;">${esc(en.plate) || "-"}</td>
+      <td>${esc(en.dateIn) || "-"}</td>
+    </tr>`).join("") + `</tbody></table></div>` + pg.bar;
+}
+function exportStockSearchCSV() {
+  const sel = ssSelectedBranches();
+  const q = ($("ss_q") ? $("ss_q").value : "").trim().toLowerCase();
+  const rows = [["شعبه", "شرکت", "نام موتور", "حجم", "رنگ", "شماره موتور", "شاسی", "پلاک", "تاریخ ورود"]];
+  DB.items
+    .filter(en => !itemDeleted(en) && !itemArchived(en) && en.status === STATUS.IN && sel.includes(en.branch) && ssMatches(en, q))
+    .forEach(en => rows.push([en.branch, en.company, en.name, en.volume, en.color, en.engine, en.chassis, en.plate, en.dateIn]));
+  downloadCSV(`stock-search-${todayJalali().replace(/\//g, "-")}.csv`, rows);
+  toast("✅ فایل CSV دانلود شد");
 }
 
-/* ==========================================================================
-   گزارش چک‌ها
-   ========================================================================== */
-function allChecks() {
-  const out = [];
-  finScopeItems().forEach(it => {
-    const f = finOf(it); if (!f) return;
-    (f.checks || []).forEach(c => out.push({ it, f, c }));
-  });
-  return out;
+/* =========================================================================
+   ۲) تبدیل موتور امانی به موجودی اصلی
+   ========================================================================= */
+function consignmentItems() {
+  return liveItems().filter(i => i.payStatus === "امانی");
 }
-function renderChecks() {
-  const el = $("finChecks"); if (!el) return;
-  const fStatus = $("fin_chk_status") ? $("fin_chk_status").value : "";
-  const q = ($("fin_chk_q") ? $("fin_chk_q").value : "").trim().toLowerCase();
-  let list = allChecks();
-  if (fStatus) list = list.filter(x => x.c.status === fStatus);
-  if (q) list = list.filter(x => [x.c.number, x.c.serial, x.c.bank, x.c.branch, x.c.payee, x.it.plate, decryptSale(x.it.saleInfo).buyer, x.c.tracking]
-    .filter(Boolean).map(v => String(v).toLowerCase()).some(v => v.includes(q)));
-  list.sort((a, b) => String(a.c.date || "").localeCompare(String(b.c.date || "")));
-  if ($("finChkCount")) $("finChkCount").textContent = `${list.length} چک`;
-  if (!list.length) { el.innerHTML = '<div class="empty">چکی یافت نشد</div>'; return; }
-  el.innerHTML = `<div style="overflow-x:auto;"><table>
-    <thead><tr><th>شماره چک</th><th>سریال</th><th>بانک</th><th>شعبه</th><th>در وجه</th><th>مبلغ</th><th>تاریخ چک</th><th>تاریخ وصول</th><th>پلاک</th><th>مشتری</th><th>وضعیت</th><th>عملیات</th></tr></thead>
-    <tbody>${list.map(x => `<tr>
-      <td style="direction:ltr;">${esc(x.c.number) || "-"}</td>
-      <td style="direction:ltr;">${esc(x.c.serial) || "-"}</td>
-      <td>${esc(x.c.bank) || "-"}</td><td>${esc(x.c.branch) || "-"}</td>
-      <td>${esc(x.c.payee) || "-"}</td><td>${money(x.c.amount)}</td>
-      <td>${esc(x.c.date) || "-"}</td><td>${esc(x.c.clearedDate) || "-"}</td>
-      <td style="direction:ltr;">${esc(x.it.plate) || "-"}</td>
-      <td>${esc(decryptSale(x.it.saleInfo).buyer) || "-"}</td>
-      <td>${checkStatusBadge(x.c.status)}</td>
-      <td><button class="btn small" onclick="openCheckManage('${x.it.id}','${x.c.id}')">مدیریت</button></td>
-    </tr>`).join("")}</tbody></table></div>`;
-}
-
-/* ==========================================================================
-   جستجوی مالی بر اساس پلاک
-   ========================================================================== */
-function renderFinanceSearch() {
-  const el = $("finSearch"); if (!el) return;
-  const q = ($("fin_search_q") ? $("fin_search_q").value : "").trim();
-  if (!q) { el.innerHTML = '<div class="empty">شماره پلاک یا نام/کد ملی مشتری را وارد کنید</div>'; return; }
-  const s = q.toLowerCase();
-  const found = finScopeItems().filter(it => {
-    const sale = decryptSale(it.saleInfo || {});
-    return [it.plate, it.chassis, it.engine, sale.buyer, sale.phone, sale.national, sale.receipt]
-      .filter(Boolean).map(x => String(x).toLowerCase()).some(x => x.includes(s));
-  });
-  if (!found.length) { el.innerHTML = '<div class="empty">موردی یافت نشد</div>'; return; }
-  el.innerHTML = found.map(it => finCard(it)).join("");
-}
-
-/* ==========================================================================
-   پرونده مالی موتور (کارت + مودال)
-   ========================================================================== */
-function finCard(it) {
-  const f = finOf(it); if (!f) return "";
-  const sale = decryptSale(it.saleInfo || {});
-  const ft = finTotals(it);
-  const status = finSaleStatus(it);
-  return `<div class="panel" style="box-shadow:none;border:1px solid var(--line);margin-bottom:12px;">
-    <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;">
-      <div><b>${esc(it.company)} ${esc(it.name)}</b> — پلاک: <b style="direction:ltr;">${esc(it.plate) || "-"}</b></div>
-      <div>${finStatusBadge(status)}</div>
-    </div>
-    <div class="info-grid">
-      <div><b>شعبه:</b> ${esc(it.branch)}</div>
-      <div><b>شاسی:</b> ${esc(it.chassis) || "-"}</div>
-      <div><b>شماره موتور:</b> ${esc(it.engine) || "-"}</div>
-      <div><b>مشتری:</b> ${esc(sale.buyer) || "-"}</div>
-      <div><b>قولنامه:</b> ${esc(sale.receipt) || "-"}</div>
-      <div><b>تاریخ فروش:</b> ${esc(it.saleDate || sale.date) || "-"}</div>
-      <div><b>مبلغ نهایی:</b> ${money(ft.final)}</div>
-      <div><b>پرداخت‌شده:</b> ${money(ft.paid)}</div>
-      <div><b>مانده:</b> <span class="neg">${money(ft.remaining)}</span></div>
-      <div><b>جریمه:</b> ${money(ft.penalty)}</div>
-    </div>
-    <div class="actions">
-      <button class="btn small" onclick="openPlateFinance('${it.id}')">📂 پرونده کامل مالی</button>
-      <button class="btn small" onclick="showHistory('${it.id}')">📜 تاریخچه</button>
-    </div>
-  </div>`;
-}
-function openPlateFinance(itemId) {
+function openConvertConsignment(itemId) {
   const it = DB.items.find(i => i.id === itemId);
   if (!it) return;
-  if (!finBranchAllowed(it)) { toast("دسترسی به این شعبه ندارید", false); return; }
-  const f = finOf(it);
-  const sale = decryptSale(it.saleInfo || {});
-  const ft = finTotals(it);
-  const status = finSaleStatus(it);
-  let html = `
-    <div class="info-grid">
-      <div><b>موتور:</b> ${esc(it.company)} ${esc(it.name)}</div>
-      <div><b>پلاک:</b> <span style="direction:ltr;">${esc(it.plate) || "-"}</span></div>
-      <div><b>شاسی:</b> ${esc(it.chassis) || "-"}</div>
-      <div><b>شماره موتور:</b> ${esc(it.engine) || "-"}</div>
-      <div><b>شعبه فعلی:</b> ${esc(it.branch)}</div>
-      <div><b>وضعیت فعلی:</b> ${statusBadge(it.status)}</div>
-      <div><b>قیمت خرید:</b> ${money(it.price)}</div>
-      <div><b>تامین‌کننده:</b> ${esc(it.supplier) || "-"}</div>
-      <div><b>بارنامه:</b> ${esc(it.barname) || "-"}</div>
-      <div><b>وضعیت فروش:</b> ${finStatusBadge(status)}</div>
-    </div>
-    <h3>💰 اطلاعات فروش</h3>
-    <div class="info-grid">
-      <div><b>مشتری:</b> ${esc(sale.buyer) || "-"} (${esc(sale.buyerType) || "مشتری"})</div>
-      <div><b>نام پدر:</b> ${esc(sale.father) || "-"}</div>
-      <div><b>کد ملی:</b> ${maskNational(sale.national)}</div>
-      <div><b>تلفن:</b> ${esc(sale.phone) || "-"}</div>
-      <div><b>تاریخ تولد:</b> ${esc(sale.birth) || "-"}</div>
-      <div><b>آدرس:</b> ${esc(sale.address) || "-"}</div>
-      <div><b>قولنامه:</b> ${esc(sale.receipt) || "-"}</div>
-      <div><b>تاریخ فروش:</b> ${esc(it.saleDate || sale.date) || "-"}</div>
-      <div><b>روش فروش:</b> ${esc(f.saleMethod)}</div>
-      <div><b>مبلغ فروش:</b> ${money(f.salePrice)}</div>
-      <div><b>تخفیف:</b> ${money(f.discount)}</div>
-      <div><b>معاوضه:</b> ${money(f.tradeIn)}</div>
-      <div><b>مبلغ نهایی:</b> ${money(ft.final)}</div>
-      <div><b>پرداخت‌شده:</b> <span class="pos">${money(ft.paid)}</span></div>
-      <div><b>مانده:</b> <span class="neg">${money(ft.remaining)}</span></div>
-      <div><b>جریمه:</b> ${money(ft.penalty)}</div>
-    </div>`;
-
-  // ضامن‌ها
-  if ((f.guarantors || []).length) {
-    html += `<h3>🤝 ضامن‌ها</h3><div class="info-grid">` + f.guarantors.map((g, i) =>
-      `<div><b>ضامن ${i + 1}:</b> ${esc(g.name) || "-"} — ${maskNational(g.national)} — ${esc(g.phone) || "-"}<br><span class="helper">${esc(g.address) || ""}</span></div>`).join("") + `</div>`;
-  }
-
-  // پیش‌پرداخت
-  if (f.prepay) {
-    html += `<h3>💵 پیش‌پرداخت</h3><div class="info-grid">
-      <div><b>مبلغ:</b> ${money(f.prepay.amount)}</div><div><b>تاریخ:</b> ${esc(f.prepay.date)}</div>
-      <div><b>روش:</b> ${payMethodBadge(f.prepay.method)}</div><div><b>کد رهگیری:</b> ${esc(f.prepay.tracking) || "-"}</div>
-      <div><b>ثبت‌کننده:</b> ${esc(f.prepay.by)}</div></div>`;
-  }
-
-  // اقساط
-  html += `<h3>📆 برنامه اقساط ${f.installments.length ? "(" + f.installments.length + " قسط)" : ""}</h3>`;
-  if (f.installments.length) {
-    html += `<div style="overflow-x:auto;"><table><thead><tr>
-      <th>ردیف</th><th>سررسید</th><th>مبلغ</th><th>نوع</th><th>پرداختی</th><th>مانده</th><th>جریمه</th><th>وضعیت</th><th>عملیات</th></tr></thead>
-      <tbody>${f.installments.map(i => {
-        const st = instStatus(i, f);
-        return `<tr>
-          <td>${i.seq}</td><td>${esc(i.dueDate)}</td><td>${money(i.amount)}</td>
-          <td>${esc(i.type)}</td><td>${money(instPaid(i))}</td>
-          <td class="neg">${money(instRemaining(i))}</td>
-          <td>${i.penalty ? money(i.penalty) : "-"}</td>
-          <td>${instStatusBadge(i, f)}</td>
-          <td>${instRemaining(i) > 0 ? `<button class="btn small success" onclick="openInstallmentPay('${it.id}','${i.id}')">پرداخت</button>` : "✅"}</td>
-        </tr>`;
-      }).join("")}</tbody></table></div>`;
-  } else html += `<p class="helper">این فروش اقساطی نیست.</p>`;
-
-  // پرداخت‌ها
-  html += `<h3>🧾 پرداخت‌ها (${(f.payments || []).filter(p => !p.void).length})</h3>`;
-  const pays = (f.payments || []).filter(p => !p.void);
-  html += pays.length ? `<div style="overflow-x:auto;"><table><thead><tr>
-    <th>تاریخ</th><th>مبلغ</th><th>روش</th><th>کد رهگیری</th><th>مرتبط با</th><th>ثبت‌کننده</th><th>عملیات</th></tr></thead>
-    <tbody>${pays.map(p => {
-      const inst = p.installmentId ? (f.installments || []).find(i => i.id === p.installmentId) : null;
-      return `<tr><td>${esc(p.date)}</td><td>${money(p.amount)}</td><td>${payMethodBadge(p.method)}</td>
-        <td>${esc(p.tracking) || "-"}</td><td>${inst ? "قسط " + inst.seq : (p === f.prepay ? "پیش‌پرداخت" : "فروش")}</td>
-        <td>${esc(p.by)}</td>
-        <td><button class="btn small danger" onclick="finVoidPaymentUI('${it.id}','${p.id}')">ابطال</button></td></tr>`;
-    }).join("")}</tbody></table></div>` : `<p class="helper">پرداختی ثبت نشده.</p>`;
-
-  // چک‌ها
-  html += `<h3>🧾 چک‌ها (${(f.checks || []).length})</h3>`;
-  html += (f.checks || []).length ? `<div style="overflow-x:auto;"><table><thead><tr>
-    <th>شماره</th><th>بانک</th><th>مبلغ</th><th>تاریخ</th><th>وصول</th><th>وضعیت</th><th>عملیات</th></tr></thead>
-    <tbody>${f.checks.map(c => `<tr><td style="direction:ltr;">${esc(c.number) || "-"}</td><td>${esc(c.bank) || "-"}</td>
-      <td>${money(c.amount)}</td><td>${esc(c.date)}</td><td>${esc(c.clearedDate) || "-"}</td>
-      <td>${checkStatusBadge(c.status)}</td>
-      <td><button class="btn small" onclick="openCheckManage('${it.id}','${c.id}')">مدیریت</button></td></tr>`).join("")}</tbody></table></div>`
-    : `<p class="helper">چکی ثبت نشده.</p>`;
-
-  // تاریخچه مالی
-  html += `<h3>📜 تاریخچه مالی</h3>`;
-  html += (f.history || []).length ? (f.history).slice().reverse().map(h =>
-    `<div class="history-item"><div><b>${esc(h.action)}</b> — ${esc(h.date)} <span class="helper">(${esc(h.by)})</span></div>
-      <div>${esc(h.note) || ""}</div></div>`).join("") : `<p class="helper">رویدادی ثبت نشده.</p>`;
-
-  openModal(`📂 پرونده مالی — ${esc(it.company)} ${esc(it.name)}`, html, null, "بستن");
-}
-
-/* ==========================================================================
-   ثبت پرداخت قسط (پشتیبانی از پرداخت ناقص و چندپردازی)
-   ========================================================================== */
-function openInstallmentPay(itemId, instId) {
-  const it = DB.items.find(i => i.id === itemId); if (!it) return;
-  if (!finBranchAllowed(it)) { toast("دسترسی ندارید", false); return; }
-  const f = finOf(it);
-  const inst = (f.installments || []).find(i => i.id === instId); if (!inst) return;
-  const remain = instRemaining(inst);
+  if (it.payStatus !== "امانی") { toast("این موتور امانی نیست", false); return; }
+  const opts = ["نقدی", "چک", "اقساط", "چکی اقساطی", "معاوضه"];
   const html = `
-    <div class="info-grid">
-      <div><b>قسط شماره:</b> ${inst.seq}</div>
-      <div><b>سررسید:</b> ${esc(inst.dueDate)}</div>
-      <div><b>مبلغ قسط:</b> ${money(inst.amount)}</div>
-      <div><b>پرداختی تاکنون:</b> ${money(instPaid(inst))}</div>
-      <div><b>مانده قسط:</b> <span class="neg">${money(remain)}</span></div>
-    </div>
-    <div class="grid" style="grid-template-columns:1fr 1fr;">
-      <div class="field"><label>مبلغ پرداخت (تومان) *</label><input id="ip_amount" class="num-fmt" value="${remain.toLocaleString("en-US")}"></div>
-      <div class="field"><label>تاریخ پرداخت (شمسی) *</label><div class="dp-wrap"><input class="dp-input" id="ip_date" inputmode="numeric"></div></div>
-      <div class="field"><label>روش پرداخت *</label><select id="ip_method" onchange="ipToggleCheck()">${FIN_METHODS.map(m => `<option>${m}</option>`).join("")}</select></div>
-      <div class="field"><label>کد رهگیری</label><input id="ip_tracking"></div>
-      <div class="field" style="grid-column:1/-1;"><label>توضیحات</label><textarea id="ip_note" rows="2"></textarea></div>
-    </div>
-    <div id="ip_checkBox" style="display:none;border:1px dashed #ccd;border-radius:8px;padding:10px;margin-top:8px;">
-      <b>اطلاعات چک</b>
-      <div class="grid" style="grid-template-columns:1fr 1fr;margin-top:8px;">
-        <div class="field"><label>شماره چک</label><input id="ipc_number"></div>
-        <div class="field"><label>سریال چک</label><input id="ipc_serial"></div>
-        <div class="field"><label>بانک</label><input id="ipc_bank"></div>
-        <div class="field"><label>شعبه بانک</label><input id="ipc_branch"></div>
-        <div class="field"><label>در وجه</label><input id="ipc_payee"></div>
-        <div class="field"><label>تاریخ چک (شمسی)</label><div class="dp-wrap"><input class="dp-input" id="ipc_date" inputmode="numeric"></div></div>
-        <div class="field"><label>کد رهگیری چک</label><input id="ipc_tracking"></div>
-        <div class="field" style="grid-column:1/-1;"><label>توضیحات چک</label><input id="ipc_note"></div>
-      </div>
-      <p class="helper">وضعیت اولیه چک: «در انتظار وصول»</p>
-    </div>
-    <div id="ip_err" class="login-err"></div>`;
-  openModal(`💳 پرداخت قسط ${inst.seq}`, html, () => {
-    const amount = getNumber($("ip_amount"));
-    const date = $("ip_date").value.trim();
-    const method = $("ip_method").value;
-    const err = $("ip_err");
-    if (!(amount > 0)) { err.textContent = "مبلغ پرداخت الزامی است"; return; }
-    if (!date) { err.textContent = "تاریخ پرداخت الزامی است"; return; }
-    const otherRemain = finTotals(it).remaining;
-    if (amount > remain + 1 && amount > otherRemain + 1) {
-      openModal("⚠️ مبلغ بیشتر از مانده", "مبلغ وارد شده از مانده این قسط بیشتر است. آیا ادامه می‌دهید؟", () => doPay(), "بله، ثبت کن");
-      return;
-    }
-    if (amount > remain + 1) {
-      openModal("⚠️ مبلغ بیشتر از مانده قسط", `مبلغ پرداخت (${money(amount)}) از مانده قسط (${money(remain)}) بیشتر است. ادامه؟`, () => doPay(), "بله، ثبت کن");
-      return;
-    }
-    doPay();
-    function doPay() {
-      const pay = { amount, date, method, tracking: $("ip_tracking").value.trim(), note: $("ip_note").value.trim(), installmentId: instId };
-      if (method === "چک") {
-        const chk = {
-          kind: "installment", amount: Number($("ipc_amount") ? getNumber($("ipc_amount")) : amount),
-          number: $("ipc_number").value.trim(), serial: $("ipc_serial").value.trim(),
-          bank: $("ipc_bank").value.trim(), branch: $("ipc_branch").value.trim(),
-          payee: $("ipc_payee").value.trim(), date: $("ipc_date").value.trim() || date,
-          tracking: $("ipc_tracking").value.trim(), note: $("ipc_note").value.trim(),
-          status: CHECK_STATUS.WAIT
-        };
-        const c = finAddCheck(it, f, chk);
-        pay.checkId = c.id; pay.tracking = pay.tracking || c.tracking;
-      }
-      const before = finTotals(it);
-      finAddPayment(it, f, pay);
-      finLog(it, f, "ثبت پرداخت قسط", `قسط ${inst.seq} — مبلغ ${money(amount)} (${method})`, before, finTotals(it));
-      save({ items: [it.id] });
-      closeModal(); toast("✅ پرداخت قسط ثبت شد");
-      renderFinance(); renderDashboard();
-    }
-  }, "ثبت پرداخت", () => {
-    attachNumFmt($("modalMsg"));
-    buildJalaliPicker($("ip_date")); attachManualDate($("ip_date"));
-    buildJalaliPicker($("ipc_date")); attachManualDate($("ipc_date"));
-    $("ip_date").value = todayJalali();
-    $("ipc_date").value = todayJalali();
-  });
-}
-function ipToggleCheck() {
-  const on = $("ip_method") && $("ip_method").value === "چک";
-  if ($("ip_checkBox")) $("ip_checkBox").style.display = on ? "block" : "none";
-}
-
-/* ==========================================================================
-   ثبت پرداخت آزاد (روی کل فروش)
-   ========================================================================== */
-function openSalePayment(itemId) {
-  const it = DB.items.find(i => i.id === itemId); if (!it) return;
-  if (!finBranchAllowed(it)) { toast("دسترسی ندارید", false); return; }
-  const f = finOf(it);
-  const ft = finTotals(it);
-  const openInst = (f.installments || []).filter(i => instRemaining(i) > 0);
-  const html = `
-    <div class="info-grid"><div><b>مشتری:</b> ${esc(decryptSale(it.saleInfo).buyer) || "-"}</div>
-      <div><b>مانده کل:</b> <span class="neg">${money(ft.remaining)}</span></div></div>
-    <div class="grid" style="grid-template-columns:1fr 1fr;">
-      <div class="field"><label>مبلغ پرداخت *</label><input id="sp_amount" class="num-fmt"></div>
-      <div class="field"><label>تاریخ (شمسی) *</label><div class="dp-wrap"><input class="dp-input" id="sp_date" inputmode="numeric"></div></div>
-      <div class="field"><label>روش پرداخت *</label><select id="sp_method" onchange="spToggleCheck()">${FIN_METHODS.map(m => `<option>${m}</option>`).join("")}</select></div>
-      <div class="field"><label>کد رهگیری</label><input id="sp_tracking"></div>
-      ${openInst.length ? `<div class="field" style="grid-column:1/-1;"><label>تخصیص به قسط (اختیاری)</label>
-        <select id="sp_inst"><option value="">— بدون تخصیص (روی کل فروش) —</option>
-        ${openInst.map(i => `<option value="${i.id}">قسط ${i.seq} — مانده ${money(instRemaining(i))} — سررسید ${esc(i.dueDate)}</option>`).join("")}</select></div>` : ""}
-      <div class="field" style="grid-column:1/-1;"><label>توضیحات</label><textarea id="sp_note" rows="2"></textarea></div>
-    </div>
-    <div id="sp_checkBox" style="display:none;border:1px dashed #ccd;border-radius:8px;padding:10px;margin-top:8px;">
-      <b>اطلاعات چک</b>
-      <div class="grid" style="grid-template-columns:1fr 1fr;margin-top:8px;">
-        <div class="field"><label>شماره چک</label><input id="spc_number"></div>
-        <div class="field"><label>سریال چک</label><input id="spc_serial"></div>
-        <div class="field"><label>بانک</label><input id="spc_bank"></div>
-        <div class="field"><label>شعبه بانک</label><input id="spc_branch"></div>
-        <div class="field"><label>در وجه</label><input id="spc_payee"></div>
-        <div class="field"><label>تاریخ چک (شمسی)</label><div class="dp-wrap"><input class="dp-input" id="spc_date" inputmode="numeric"></div></div>
-      </div>
-    </div>
-    <div id="sp_err" class="login-err"></div>`;
-  openModal("💵 ثبت پرداخت", html, () => {
-    const amount = getNumber($("sp_amount"));
-    const date = $("sp_date").value.trim();
-    const method = $("sp_method").value;
-    const instId = $("sp_inst") ? $("sp_inst").value : "";
-    const err = $("sp_err");
-    if (!(amount > 0)) { err.textContent = "مبلغ الزامی است"; return; }
-    if (!date) { err.textContent = "تاریخ الزامی است"; return; }
-    const proceed = () => {
-      const pay = { amount, date, method, tracking: $("sp_tracking").value.trim(), note: $("sp_note").value.trim(), installmentId: instId || null };
-      if (method === "چک") {
-        const chk = {
-          kind: instId ? "installment" : "payment", amount, number: $("spc_number").value.trim(),
-          serial: $("spc_serial").value.trim(), bank: $("spc_bank").value.trim(), branch: $("spc_branch").value.trim(),
-          payee: $("spc_payee").value.trim(), date: $("spc_date").value.trim() || date, status: CHECK_STATUS.WAIT
-        };
-        const c = finAddCheck(it, f, chk); pay.checkId = c.id;
-      }
-      const before = finTotals(it);
-      finAddPayment(it, f, pay);
-      finLog(it, f, "ثبت پرداخت", `مبلغ ${money(amount)} (${method})${instId ? " — روی قسط" : ""}`, before, finTotals(it));
-      save({ items: [it.id] });
-      closeModal(); toast("✅ پرداخت ثبت شد"); renderFinance(); renderDashboard();
-    };
-    if (amount > ft.remaining + 1) {
-      openModal("⚠️ مبلغ بیشتر از مانده", `مانده فعلی ${money(ft.remaining)} است اما مبلغ ${money(amount)} وارد شده. ادامه؟`, proceed, "بله، ثبت کن");
-      return;
-    }
-    proceed();
-  }, "ثبت پرداخت", () => {
-    attachNumFmt($("modalMsg"));
-    buildJalaliPicker($("sp_date")); attachManualDate($("sp_date"));
-    buildJalaliPicker($("spc_date")); attachManualDate($("spc_date"));
-    $("sp_date").value = todayJalali(); $("spc_date").value = todayJalali();
-  });
-}
-function spToggleCheck() {
-  const on = $("sp_method") && $("sp_method").value === "چک";
-  if ($("sp_checkBox")) $("sp_checkBox").style.display = on ? "block" : "none";
-}
-function finVoidPaymentUI(itemId, payId) {
-  const it = DB.items.find(i => i.id === itemId); if (!it) return;
-  const f = finOf(it);
-  openModal("ابطال پرداخت", "این پرداخت ابطال شود؟ سابقه آن حفظ می‌ماند.", () => {
-    const r = $("void_reason") ? $("void_reason").value.trim() : "";
-    finVoidPayment(it, f, payId, r);
-    save({ items: [it.id] }); closeModal(); toast("↩️ پرداخت ابطال شد"); renderFinance();
-  }, "ابطال", () => {
-    $("modalMsg").insertAdjacentHTML("beforeend", `<div class="field" style="margin-top:10px;"><label>دلیل ابطال</label><input id="void_reason"></div>`);
-  });
-}
-
-/* ==========================================================================
-   مدیریت چک (تغییر وضعیت، وصول، برگشت، ابطال)
-   ========================================================================== */
-function openCheckManage(itemId, checkId) {
-  const it = DB.items.find(i => i.id === itemId); if (!it) return;
-  const f = finOf(it);
-  const c = (f.checks || []).find(x => x.id === checkId); if (!c) return;
-  const html = `
-    <div class="info-grid">
-      <div><b>شماره چک:</b> <span style="direction:ltr;">${esc(c.number) || "-"}</span></div>
-      <div><b>سریال:</b> ${esc(c.serial) || "-"}</div>
-      <div><b>بانک:</b> ${esc(c.bank) || "-"} ${esc(c.branch) ? "— " + esc(c.branch) : ""}</div>
-      <div><b>در وجه:</b> ${esc(c.payee) || "-"}</div>
-      <div><b>مبلغ:</b> ${money(c.amount)}</div>
-      <div><b>تاریخ چک:</b> ${esc(c.date) || "-"}</div>
-      <div><b>وضعیت فعلی:</b> ${checkStatusBadge(c.status)}</div>
-      <div><b>ثبت‌کننده:</b> ${esc(c.by) || "-"}</div>
-    </div>
-    <div class="field"><label>تغییر وضعیت به</label>
-      <select id="cm_status">
-        ${Object.values(CHECK_STATUS).map(s => `<option ${c.status === s ? "selected" : ""}>${s}</option>`).join("")}
-      </select></div>
-    <div class="field" style="margin-top:8px;"><label>تاریخ وصول (در صورت وصول‌شدن)</label><div class="dp-wrap"><input class="dp-input" id="cm_clearDate" inputmode="numeric"></div></div>
-    <div class="field" style="margin-top:8px;"><label>کد رهگیری وصول</label><input id="cm_tracking"></div>
-    <div class="field" style="margin-top:8px;"><label>توضیحات / دلیل</label><textarea id="cm_note" rows="2"></textarea></div>
-    <div id="cm_err" class="login-err"></div>`;
-  openModal("🧾 مدیریت چک", html, () => {
-    const status = $("cm_status").value;
-    const err = $("cm_err");
-    const extra = { clearedDate: $("cm_clearDate").value.trim(), tracking: $("cm_tracking").value.trim(), note: $("cm_note").value.trim(), reason: $("cm_note").value.trim(), date: todayJalali() };
-    if (status === c.status) { err.textContent = "وضعیت تغییری نکرده"; return; }
-    finSetCheckStatus(it, f, checkId, status, extra);
+    <p class="helper">موتور: <b>${esc(it.company)} ${esc(it.name)}</b> — شاسی: ${esc(it.chassis) || "-"} — شعبه: ${esc(it.branch)}</p>
+    <p class="helper">این موتور با وضعیت خرید «امانی» ثبت شده است. با تبدیل، به <b>موجودی اصلی</b> (تحویل‌شده) تبدیل می‌شود.</p>
+    <div class="field" style="margin-top:8px;"><label>وضعیت خرید پس از تبدیل</label>
+      <select id="cc_pay">${opts.map(o => `<option>${esc(o)}</option>`).join("")}</select></div>
+    <div class="field" style="margin-top:8px;"><label>تاریخ تبدیل (شمسی) *</label>
+      <div class="dp-wrap"><input class="dp-input" id="cc_date" readonly></div></div>
+    <div class="field" style="margin-top:8px;"><label>توضیحات</label>
+      <input id="cc_note" placeholder="مثلاً: تسویه حساب با تأمین‌کننده"></div>
+    <div id="cc_err" class="login-err"></div>`;
+  openModal("\U0001f4b1 تبدیل امانی به موجودی اصلی", html, () => {
+    const date = $("cc_date").value.trim();
+    if (!date) { $("cc_err").textContent = "تاریخ تبدیل را انتخاب کنید"; return; }
+    const oldPay = it.payStatus;
+    it.payStatus = $("cc_pay").value;
+    const note = $("cc_note").value.trim();
+    pushHistory({
+      id: uid("h"), itemId: it.id, branch: it.branch, action: "convert",
+      fromStatus: it.status, toStatus: it.status, date,
+      note: `تبدیل امانی به موجودی اصلی: ${oldPay} → ${it.payStatus}${note ? " — " + note : ""}`,
+      by: userTag(), extra: { from: oldPay, to: it.payStatus, note }
+    });
     save({ items: [it.id] });
-    closeModal(); toast("✅ وضعیت چک به‌روز شد"); renderFinance();
-  }, "ثبت تغییر", () => {
-    buildJalaliPicker($("cm_clearDate")); attachManualDate($("cm_clearDate"));
-    $("cm_clearDate").value = todayJalali();
-    const upd = () => {
-      const s = $("cm_status").value;
-      const box = $("cm_clearDate").closest(".field");
-      const isCleared = s === CHECK_STATUS.CLEARED;
-      if (box) box.style.display = isCleared ? "flex" : "none";
-      $("cm_tracking").parentElement.style.display = isCleared ? "flex" : "none";
-    };
-    $("cm_status").onchange = upd; upd();
+    closeModal(); toast("✅ به موجودی اصلی تبدیل شد");
+    renderInventory(); renderCycle(); renderDashboard();
+  }, "تبدیل", () => {
+    if ($("cc_date")) { buildJalaliPicker($("cc_date")); attachManualDate($("cc_date")); $("cc_date").value = todayJalali(); }
   });
 }
 
-/* ==========================================================================
-   برنامه‌ساز اقساط (تولید خودکار + ویرایش دستی + کنترل تطبیق)
-   ========================================================================== */
-let _planDraft = null;      // لیست موقت اقساط
-let _planCtx = null;        // { payable, finalAmount }
-
-function openInstallmentBuilder(ctx) {
-  // ctx: { payable, finalAmount, firstDate, count, intervalDays, ratePct, type, penaltyRate, onSave }
-  _planCtx = ctx;
-  _planDraft = buildInstallmentPlan({
-    payable: ctx.payable, count: ctx.count || 6, intervalDays: ctx.intervalDays || 30,
-    firstDate: ctx.firstDate || todayJalali(), type: ctx.type || "نقدی", penaltyRate: ctx.penaltyRate || 0
-  });
-  const html = `
-    <div class="info-grid">
-      <div><b>مبلغ قابل تقسیط:</b> ${money(ctx.payable)}</div>
-      <div><b>مبلغ نهایی فروش:</b> ${money(ctx.finalAmount)}</div>
-    </div>
-    <div class="grid" style="grid-template-columns:repeat(4,1fr);">
-      <div class="field"><label>تعداد اقساط</label><input id="pb_count" type="number" min="1" max="120" value="${ctx.count || 6}"></div>
-      <div class="field"><label>فاصله (روز)</label><input id="pb_interval" type="number" min="1" max="365" value="${ctx.intervalDays || 30}"></div>
-      <div class="field"><label>تاریخ اولین قسط</label><div class="dp-wrap"><input class="dp-input" id="pb_first" inputmode="numeric" value="${esc(ctx.firstDate || todayJalali())}"></div></div>
-      <div class="field"><label>نوع اقساط</label><select id="pb_type">${INST_TYPES.map(t => `<option>${t}</option>`).join("")}</select></div>
-      <div class="field"><label>نرخ جریمه ماهانه (%)</label><input id="pb_penalty" type="number" step="0.1" min="0" value="${ctx.penaltyRate || 0}"></div>
-    </div>
-    <div class="actions"><button class="btn" onclick="planRegen()">🔄 تولید خودکار جدول</button>
-      <button class="btn gray" onclick="planDistribute()">⚖️ توزیع مساوی مانده</button></div>
-    <div id="planSum"></div>
-    <div id="planTable"></div>`;
-  openModal("📆 برنامه‌سازی اقساط", html, () => {
-    const plan = _planDraft || [];
-    const total = planTotal(plan);
-    const diff = ctx.payable - total;
-    if (Math.abs(diff) > 0.5 && !ctx.allowMismatch) {
-      $("planSum").innerHTML = `<div class="alert red">⚠️ مجموع اقساط (${money(total)}) با مبلغ قابل تقسیط (${money(ctx.payable)}) اختلاف دارد: ${money(Math.abs(diff))}.
-        برای ثبت، ابتدا اختلاف را اصلاح کنید (مبلغ یک قسط را تغییر دهید یا «توزیع مساوی مانده» را بزنید).</div>`;
-      return;
-    }
-    if (typeof ctx.onSave === "function") ctx.onSave(plan);
-    closeModal();
-  }, "ثبت برنامه اقساط", () => {
-    buildJalaliPicker($("pb_first")); attachManualDate($("pb_first"));
-    planRender();
-  });
+/* =========================================================================
+   ۴) ویرایش از داخل فرم ورود و خروج
+   ========================================================================= */
+function editSelectedOutItem() {
+  const id = $("out_item") ? $("out_item").value : "";
+  if (!id) { toast("ابتدا یک موتور را از لیست انتخاب کنید", false); return; }
+  editItem(id);
 }
-function planRegen() {
-  const payable = _planCtx.payable;
-  _planDraft = buildInstallmentPlan({
-    payable,
-    count: parseInt($("pb_count").value) || 1,
-    intervalDays: parseInt($("pb_interval").value) || 30,
-    firstDate: $("pb_first").value.trim() || todayJalali(),
-    type: $("pb_type").value, penaltyRate: Number($("pb_penalty").value) || 0
-  });
-  planRender();
-}
-function planDistribute() {
-  const payable = _planCtx.payable;
-  const n = _planDraft.length || 1;
-  const base = Math.floor(payable / n), rem = payable - base * n;
-  _planDraft.forEach((inst, i) => { inst.amount = base + (i >= n - rem ? 1 : 0); });
-  planRender();
-}
-function planEditAmount(id, val) {
-  const inst = _planDraft.find(i => i.id === id); if (!inst) return;
-  inst.amount = Math.max(0, Math.round(Number(String(val).replace(/[^\d]/g, "")) || 0));
-  planRender();
-}
-function planRender() {
-  const plan = _planDraft || [];
-  const total = planTotal(plan);
-  const pay = _planCtx.payable;
-  const diff = pay - total;
-  const eq = Math.abs(diff) <= 0.5;
-  $("planSum").innerHTML = `<div class="alert ${eq ? "info" : "red"}">
-    مجموع اقساط: <b>${money(total)}</b> — مبلغ قابل تقسیط: <b>${money(pay)}</b>
-    ${eq ? " ✅ تطبیق کامل" : ` ⚠️ اختلاف: <b>${money(Math.abs(diff))}</b> (${diff > 0 ? "کم" : "زیاد"})`}</div>`;
-  $("planTable").innerHTML = `<div style="overflow-x:auto;"><table>
-    <thead><tr><th>ردیف</th><th>سررسید</th><th>مبلغ (قابل ویرایش)</th><th>نوع</th></tr></thead>
-    <tbody>${plan.map(i => `<tr>
-      <td>${i.seq}</td><td>${esc(i.dueDate)}</td>
-      <td><input class="num-fmt" style="width:150px;" value="${Number(i.amount).toLocaleString("en-US")}"
-        onblur="planEditAmount('${i.id}', this.value)"></td>
-      <td>${esc(i.type)}</td></tr>`).join("")}</tbody></table></div>`;
-}
-
-/* ==========================================================================
-   بخش‌های فرم فروش (ضامن، پرداخت، اقساط، چک) — تزریق در فرم خروج و مودال فروش
-   ========================================================================== */
-function financeFormHtml(prefix) {
-  const p = prefix; // "out" یا "m"
-  return `
-  <div style="grid-column:1/-1;border-top:2px dashed #ccd;margin-top:10px;padding-top:10px;">
-    <h3 style="margin-top:0;">🤝 ضامن‌ها (برای فروش اقساطی/چکی)</h3>
-    <div class="grid" style="grid-template-columns:1fr 1fr;">
-      <div class="field"><label>ضامن اول — نام و نام خانوادگی</label><input id="${p}_g1name"></div>
-      <div class="field"><label>ضامن اول — کد ملی</label><input id="${p}_g1national" maxlength="10" inputmode="numeric"></div>
-      <div class="field"><label>ضامن اول — شماره تماس</label><input id="${p}_g1phone" inputmode="tel"></div>
-      <div class="field"><label>ضامن اول — آدرس</label><input id="${p}_g1addr"></div>
-      <div class="field"><label>ضامن دوم — نام و نام خانوادگی</label><input id="${p}_g2name"></div>
-      <div class="field"><label>ضامن دوم — کد ملی</label><input id="${p}_g2national" maxlength="10" inputmode="numeric"></div>
-      <div class="field"><label>ضامن دوم — شماره تماس</label><input id="${p}_g2phone" inputmode="tel"></div>
-      <div class="field"><label>ضامن دوم — آدرس</label><input id="${p}_g2addr"></div>
-    </div>
-  </div>
-  <div style="grid-column:1/-1;border-top:2px dashed #ccd;margin-top:10px;padding-top:10px;">
-    <h3 style="margin-top:0;">💵 اطلاعات پرداخت</h3>
-    <div class="grid" style="grid-template-columns:1fr 1fr 1fr;">
-      <div class="field"><label>روش فروش *</label>
-        <select id="${p}_saleMethod" onchange="finToggleSaleMethod('${p}')">${FIN_SALE_METHODS.map(m => `<option>${m}</option>`).join("")}</select></div>
-      <div class="field"><label>مبلغ پیش‌پرداخت (تومان)</label><input id="${p}_finPrepay" class="num-fmt" placeholder="0"></div>
-      <div class="field"><label>تاریخ پیش‌پرداخت</label><div class="dp-wrap"><input class="dp-input" id="${p}_finPrepayDate" inputmode="numeric"></div></div>
-      <div class="field"><label>روش پیش‌پرداخت</label><select id="${p}_finPrepayMethod">${FIN_METHODS.map(m => `<option>${m}</option>`).join("")}</select></div>
-      <div class="field"><label>مبلغ پرداخت اولیه (نقدی/کارت)</label><input id="${p}_finPaid" class="num-fmt" placeholder="0"></div>
-      <div class="field"><label>تاریخ پرداخت اولیه</label><div class="dp-wrap"><input class="dp-input" id="${p}_finPaidDate" inputmode="numeric"></div></div>
-      <div class="field"><label>روش پرداخت اولیه</label><select id="${p}_finPaidMethod">${FIN_METHODS.filter(m => m !== "چک").map(m => `<option>${m}</option>`).join("")}</select></div>
-      <div class="field"><label>هزینه اضافه (تومان)</label><input id="${p}_finExtraCost" class="num-fmt" placeholder="0"></div>
-      <div class="field" id="${p}_finCheckCountWrap"><label>تعداد چک فروش</label><input id="${p}_finCheckCount" type="number" min="0" max="24" value="0" onchange="finBuildCheckRows('${p}')"></div>
-    </div>
-    <div id="${p}_finCheckRows"></div>
-  </div>
-  <div id="${p}_instWrap" style="grid-column:1/-1;display:none;border-top:2px dashed #ccd;margin-top:10px;padding-top:10px;">
-    <h3 style="margin-top:0;">📆 برنامه اقساط</h3>
-    <div class="grid" style="grid-template-columns:repeat(4,1fr);">
-      <div class="field"><label>تعداد اقساط</label><input id="${p}_instCount" type="number" min="1" max="120" value="6"></div>
-      <div class="field"><label>فاصله (روز)</label><input id="${p}_instInterval" type="number" min="1" max="365" value="30"></div>
-      <div class="field"><label>تاریخ اولین قسط</label><div class="dp-wrap"><input class="dp-input" id="${p}_instFirst" inputmode="numeric"></div></div>
-      <div class="field"><label>نوع اقساط</label><select id="${p}_instType">${INST_TYPES.map(t => `<option>${t}</option>`).join("")}</select></div>
-      <div class="field"><label>نرخ جریمه ماهانه (%)</label><input id="${p}_instPenalty" type="number" step="0.1" min="0" value="0"></div>
-      <div class="field" style="grid-column:1/-1;display:flex;align-items:end;gap:8px;">
-        <button type="button" class="btn" onclick="finPreviewPlan('${p}')">📊 ساخت/پیش‌نمایش جدول اقساط</button>
-      </div>
-    </div>
-    <div id="${p}_instPreview"></div>
-  </div>`;
-}
-function finToggleSaleMethod(p) {
-  const method = $(`${p}_saleMethod`).value;
-  if ($(`${p}_instWrap`)) $(`${p}_instWrap`).style.display = method === "اقساطی" ? "block" : "none";
-  const chkWrap = $(`${p}_finCheckCountWrap`);
-  if (chkWrap) chkWrap.style.display = method === "نقدی" ? "none" : "flex";
-  if (method === "چکی" && $(`${p}_finCheckCount`) && +$(`${p}_finCheckCount`).value === 0) { $(`${p}_finCheckCount`).value = 1; finBuildCheckRows(p); }
-  if (method === "اقساطی" && $(`${p}_instFirst`) && !$(`${p}_instFirst`).value) $(`${p}_instFirst`).value = todayJalali();
-}
-function finBuildCheckRows(p) {
-  const n = Math.max(0, Math.min(24, parseInt($(`${p}_finCheckCount`) ? $(`${p}_finCheckCount`).value : 0) || 0));
-  const box = $(`${p}_finCheckRows`); if (!box) return;
-  let html = "";
-  for (let i = 0; i < n; i++) {
-    html += `<div style="border:1px dashed #ccd;border-radius:8px;padding:10px;margin-top:8px;">
-      <b>چک ${i + 1}</b>
-      <div class="grid" style="grid-template-columns:1fr 1fr 1fr;margin-top:6px;">
-        <div class="field"><label>مبلغ</label><input id="${p}_chk${i}_amount" class="num-fmt"></div>
-        <div class="field"><label>شماره چک</label><input id="${p}_chk${i}_number"></div>
-        <div class="field"><label>سریال</label><input id="${p}_chk${i}_serial"></div>
-        <div class="field"><label>بانک</label><input id="${p}_chk${i}_bank"></div>
-        <div class="field"><label>شعبه</label><input id="${p}_chk${i}_branch"></div>
-        <div class="field"><label>در وجه</label><input id="${p}_chk${i}_payee"></div>
-        <div class="field"><label>تاریخ چک</label><div class="dp-wrap"><input class="dp-input" id="${p}_chk${i}_date" inputmode="numeric"></div></div>
-        <div class="field"><label>کد رهگیری</label><input id="${p}_chk${i}_tracking"></div>
-        <div class="field"><label>توضیحات</label><input id="${p}_chk${i}_note"></div>
-      </div></div>`;
-  }
-  box.innerHTML = html;
-  for (let i = 0; i < n; i++) { const el = $(`${p}_chk${i}_date`); if (el) { buildJalaliPicker(el); attachManualDate(el); el.value = todayJalali(); } }
-  if (typeof attachNumFmt === "function") attachNumFmt(box);
-}
-function finReadChecks(p) {
-  const n = Math.max(0, Math.min(24, parseInt($(`${p}_finCheckCount`) ? $(`${p}_finCheckCount`).value : 0) || 0));
-  const out = [];
-  for (let i = 0; i < n; i++) {
-    const amount = getNumber($(`${p}_chk${i}_amount`));
-    const number = $(`${p}_chk${i}_number`) ? $(`${p}_chk${i}_number`).value.trim() : "";
-    if (!amount && !number) continue;
-    out.push({
-      kind: "sale", amount, number, serial: $(`${p}_chk${i}_serial`).value.trim(),
-      bank: $(`${p}_chk${i}_bank`).value.trim(), branch: $(`${p}_chk${i}_branch`).value.trim(),
-      payee: $(`${p}_chk${i}_payee`).value.trim(), date: $(`${p}_chk${i}_date`).value.trim() || todayJalali(),
-      tracking: $(`${p}_chk${i}_tracking`) ? $(`${p}_chk${i}_tracking`).value.trim() : "",
-      note: $(`${p}_chk${i}_note`) ? $(`${p}_chk${i}_note`).value.trim() : "", status: CHECK_STATUS.WAIT
-    });
-  }
-  return out;
-}
-function finReadGuarantors(p) {
-  const g = [];
-  [1, 2].forEach(i => {
-    const name = $(`${p}_g${i}name`) ? $(`${p}_g${i}name`).value.trim() : "";
-    const national = $(`${p}_g${i}national`) ? $(`${p}_g${i}national`).value.trim() : "";
-    const phone = $(`${p}_g${i}phone`) ? $(`${p}_g${i}phone`).value.trim() : "";
-    const address = $(`${p}_g${i}addr`) ? $(`${p}_g${i}addr`).value.trim() : "";
-    if (name || national || phone || address) g.push({ name, national, phone, address });
-  });
-  return g;
-}
-function finPreviewPlan(p) {
-  const salePrice = getNumber($(p === "out" ? "out_price" : "m_price"));
-  const discount = getNumber($(p === "out" ? "out_discount" : "m_discount"));
-  const tradeIn = getNumber($(p === "out" ? "out_tradeIn" : "m_tradeIn"));
-  const extraCost = getNumber($(`${p}_finExtraCost`));
-  const prepay = getNumber($(`${p}_finPrepay`));
-  const finalAmount = finFinal(salePrice, discount, tradeIn, extraCost);
-  const payable = Math.max(0, finalAmount - prepay);
-  const ctx = {
-    payable, finalAmount,
-    count: parseInt($(`${p}_instCount`).value) || 6,
-    intervalDays: parseInt($(`${p}_instInterval`).value) || 30,
-    firstDate: $(`${p}_instFirst`).value.trim() || todayJalali(),
-    type: $(`${p}_instType`).value, penaltyRate: Number($(`${p}_instPenalty`).value) || 0,
-    onSave: (plan) => { window[`_pendingPlan_${p}`] = plan; renderPlanPreviewInline(p, plan); },
-    allowMismatch: false
-  };
-  openInstallmentBuilder(ctx);
-}
-function renderPlanPreviewInline(p, plan) {
-  const el = $(`${p}_instPreview`); if (!el) return;
-  const total = planTotal(plan);
-  el.innerHTML = `<div class="alert info">✅ برنامه ${plan.length} قسطی ثبت شد — مجموع: ${money(total)}</div>`;
-}
-
-/* ==========================================================================
-   ساخت رکورد مالی از فرم فروش (خروج کالا / مودال فروش)
-   ========================================================================== */
-async function finBuildFromForm(p, item, saleData) {
-  const salePrice = saleData.salePrice || 0;
-  const discount = saleData.discount || 0;
-  const tradeIn = saleData.tradeIn || 0;
-  const extraCost = getNumber($(`${p}_finExtraCost`));
-  const finalAmount = finFinal(salePrice, discount, tradeIn, extraCost);
-  const saleMethod = $(`${p}_saleMethod`) ? $(`${p}_saleMethod`).value : normSaleMethod(saleData.payStatus);
-  const prepayAmount = getNumber($(`${p}_finPrepay`));
-  const paidAmount = getNumber($(`${p}_finPaid`));
-  const today = saleData.date || todayJalali();
-
-  const f = {
-    financeId: uid("fin"), branch: item.branch,
-    createdBy: currentUser ? currentUser.username : "",
-    createdAt: new Date().toISOString(),
-    salePrice, discount, tradeIn, extraCost, finalAmount, saleMethod,
-    prepay: null, payments: [], installments: [], checks: [],
-    guarantors: finReadGuarantors(p),
-    dueMode: "auto", startDate: "", count: 0, ratePct: 0, intervalDays: 30, penaltyRate: Number($(`${p}_instPenalty`) ? $(`${p}_instPenalty`).value : 0) || 0,
-    history: [], void: false
-  };
-
-  // پیش‌پرداخت
-  if (prepayAmount > 0) {
-    f.prepay = {
-      id: uid("pay"), amount: prepayAmount,
-      date: $(`${p}_finPrepayDate`) && $(`${p}_finPrepayDate`).value.trim() || today,
-      method: $(`${p}_finPrepayMethod`) ? $(`${p}_finPrepayMethod`).value : "نقدی",
-      tracking: "", note: "پیش‌پرداخت اولیه", by: userTag(), at: new Date().toISOString()
-    };
-  }
-  // پرداخت اولیه
-  if (paidAmount > 0) {
-    f.payments.push({
-      id: uid("pay"), amount: paidAmount,
-      date: $(`${p}_finPaidDate`) && $(`${p}_finPaidDate`).value.trim() || today,
-      method: $(`${p}_finPaidMethod`) ? $(`${p}_finPaidMethod`).value : "نقدی",
-      tracking: "", installmentId: null, note: "پرداخت اولیه", by: userTag(), at: new Date().toISOString()
-    });
-  }
-  // چک‌های فروش
-  const chks = finReadChecks(p);
-  chks.forEach(c => finAddCheck(item, f, c));
-
-  // برنامه اقساط (اگر اقساطی)
-  if (saleMethod === "اقساطی") {
-    const payable = Math.max(0, finalAmount - prepayAmount - paidAmount);
-    let plan = window[`_pendingPlan_${p}`];
-    if (!plan || !plan.length) {
-      plan = buildInstallmentPlan({
-        payable, count: parseInt($(`${p}_instCount`).value) || 6,
-        intervalDays: parseInt($(`${p}_instInterval`).value) || 30,
-        firstDate: $(`${p}_instFirst`).value.trim() || todayJalali(),
-        type: $(`${p}_instType`).value, penaltyRate: f.penaltyRate
-      });
-    }
-    f.installments = plan;
-    f.count = plan.length; f.startDate = plan[0] ? plan[0].dueDate : "";
-    f.intervalDays = parseInt($(`${p}_instInterval`).value) || 30;
-  }
-  f.history.push({ at: f.createdAt, date: today, by: userTag(), action: "ایجاد فروش", note: `روش: ${saleMethod} — مبلغ نهایی ${money(finalAmount)}` });
-  window[`_pendingPlan_${p}`] = null;
-  item.saleInfo.finance = f;
-  return f;
-}
-
-function finMethodFromPayStatus(ps) { return normSaleMethod(ps); }
-
-/* ==========================================================================
-   خروجی CSV گزارش‌های مالی
-   ========================================================================== */
-function exportDebtorsCSV() {
-  const rows = [["نام", "موبایل", "کد ملی", "شعبه", "پلاک", "قولنامه", "مبلغ فروش", "پرداخت‌شده", "مانده", "جریمه", "اقساط باقی", "نزدیک‌ترین سررسید", "وضعیت"]];
-  const q = ($("fin_debtor_q") ? $("fin_debtor_q").value : "").trim().toLowerCase();
-  finScopeItems().forEach(it => {
-    const f = finOf(it); const ft = finTotals(it);
-    if (ft.remaining <= 0) return;
-    const sale = decryptSale(it.saleInfo || {});
-    if (q && ![sale.buyer, sale.phone, sale.national, it.plate, sale.receipt].filter(Boolean).map(x => String(x).toLowerCase()).some(x => x.includes(q))) return;
-    const openInst = (f.installments || []).filter(i => instRemaining(i) > 0);
-    rows.push([sale.buyer, sale.phone, sale.national, it.branch, it.plate, sale.receipt, ft.final, ft.paid, ft.remaining, ft.penalty,
-      openInst.length, openInst.map(i => i.dueDate).sort()[0] || "-", finSaleStatus(it)]);
-  });
-  downloadCSV(`debtors-${todayJalali().replace(/\//g, "-")}.csv`, rows);
-  toast("✅ فایل بدهکاران دانلود شد");
-}
-function exportChecksCSV() {
-  const rows = [["شماره چک", "سریال", "بانک", "شعبه", "در وجه", "مبلغ", "تاریخ چک", "تاریخ وصول", "کد رهگیری", "پلاک", "مشتری", "وضعیت", "ثبت‌کننده"]];
-  let list = allChecks();
-  const fStatus = $("fin_chk_status") ? $("fin_chk_status").value : "";
-  if (fStatus) list = list.filter(x => x.c.status === fStatus);
-  list.forEach(x => rows.push([x.c.number, x.c.serial, x.c.bank, x.c.branch, x.c.payee, x.c.amount, x.c.date,
-    x.c.clearedDate, x.c.tracking || x.c.clearedTracking, x.it.plate, decryptSale(x.it.saleInfo).buyer, x.c.status, x.c.by]));
-  downloadCSV(`checks-${todayJalali().replace(/\//g, "-")}.csv`, rows);
-  toast("✅ فایل چک‌ها دانلود شد");
-}
-/* دکمه پرونده مالی برای جدول‌ها */
-function financeActionBtn(item) {
-  if (!item.saleInfo) return "";
-  return `<button class="btn small purple" title="پرونده مالی" onclick="event.stopPropagation();openPlateFinance('${item.id}')">💰</button>`;
-}
-
-/* ==========================================================================
-   خلاصه مالی روی داشبورد اصلی
-   ========================================================================== */
-function renderDashFinance() {
-  const el = $("dashFinance"); if (!el) return;
-  const items = finScopeItems();
-  let finalSum = 0, paidSum = 0, remSum = 0, lateSum = 0, chkWait = 0;
-  items.forEach(it => {
-    const ft = finTotals(it);
-    finalSum += ft.final; paidSum += ft.paid; remSum += ft.remaining;
-    const f = finOf(it);
-    if (f) {
-      (f.installments || []).forEach(i => { const s = instStatus(i, f); if (s === INST_STATUS.OVERDUE || s === INST_STATUS.PENALTY) lateSum += instRemaining(i); });
-      (f.checks || []).forEach(c => { if (c.status === CHECK_STATUS.WAIT) chkWait += Number(c.amount) || 0; });
-    }
-  });
-  el.innerHTML = `
-    <div class="stat-card green"><div class="num">${money(finalSum)}</div><div class="lbl">💵 کل فروش</div></div>
-    <div class="stat-card"><div class="num">${money(paidSum)}</div><div class="lbl">✅ وصول‌شده</div></div>
-    <div class="stat-card red"><div class="num">${money(remSum)}</div><div class="lbl">💰 مانده بدهکاران</div></div>
-    <div class="stat-card red"><div class="num">${money(lateSum)}</div><div class="lbl">⏰ معوقات</div></div>
-    <div class="stat-card orange"><div class="num">${money(chkWait)}</div><div class="lbl">🧾 چک در انتظار</div></div>
-    <div class="stat-card click" onclick="document.querySelector('#mainNav button[data-tab=finance]').click()" style="cursor:pointer;"><div class="num">📂</div><div class="lbl">مشاهده بخش مالی</div></div>`;
+function openRecentEntries() {
+  let items = liveItems();
+  if (!isManager()) items = items.filter(i => i.branch === activeBranch);
+  items = items.slice().sort((a, b) => String(b.createdAt || "").localeCompare(String(a.createdAt || ""))).slice(0, 15);
+  if (!items.length) { toast("موتوری ثبت نشده", false); return; }
+  const html = `<p class="helper">۱۵ مورد آخرِ شعبه فعال. برای ویرایش، روی دکمه بزنید.</p>` +
+    items.map(it => `<div class="list-row">
+      <span>\U0001f3cd\ufe0f <b>${esc(it.company)} ${esc(it.name)}</b> — ${esc(it.color) || "-"}
+        <span class="helper">شاسی: ${esc(it.chassis) || "-"} — ${esc(it.dateIn) || ""}</span></span>
+      <span><button class="btn small success" onclick="closeModal();setTimeout(()=>editItem('${it.id}'),80)">\u270f\ufe0f ویرایش</button></span>
+    </div>`).join("");
+  openModal("\u270f\ufe0f ویرایش آخرین ورودی‌ها", html, null, "بستن");
 }
 /* ==========================================================================
    ورود کاربری، سطح دسترسی و همگام‌سازی زنده (WebSocket room)
@@ -5659,12 +4574,7 @@ function clearForm(prefix) {
   (ids[prefix] || []).forEach(id => { const el = $(id); if (el) { el.value = ""; el.dataset.raw = ""; } });
   if (prefix === "in") { $("in_qty").value = 1; $("in_date").value = todayJalali(); }
   if (prefix === "out") {
-    $("out_date").value = todayJalali(); $("out_item").selectedIndex = 0;
-    if ($("out_finCheckCount")) { $("out_finCheckCount").value = 0; if (typeof finBuildCheckRows === "function") finBuildCheckRows("out"); }
-    ["out_finPrepay", "out_finPaid", "out_finExtraCost"].forEach(id => { const e = $(id); if (e) { e.value = ""; e.dataset.raw = ""; } });
-    ["out_g1name", "out_g1national", "out_g1phone", "out_g1addr", "out_g2name", "out_g2national", "out_g2phone", "out_g2addr"].forEach(id => { const e = $(id); if (e) e.value = ""; });
-    if ($("out_instPreview")) $("out_instPreview").innerHTML = "";
-    window["_pendingPlan_out"] = null;
+    $("out_date").value = todayJalali(); if ($("out_item")) $("out_item").selectedIndex = 0;
   }
   clearErrs(prefix === "in" ? $("inForm") : $("outForm"));
 }
